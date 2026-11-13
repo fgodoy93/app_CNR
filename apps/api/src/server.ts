@@ -45,6 +45,7 @@ export async function buildApp() {
   await app.register(cors, {
     origin: corsOrigins.length > 0 ? corsOrigins : true,
     credentials: true,
+    methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   });
   await app.register(rateLimit, {
     max: 300,
