@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Modal, View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
+import { Modal, View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { COLORS } from '../theme';
 
 export function NewActivityModal({
@@ -59,7 +59,14 @@ export function NewActivityModal({
             <TouchableOpacity
               onPress={() => {
                 const chosenType = typeId || types[0]?.id;
-                if (!chosenType || !title.trim()) return;
+                if (!chosenType) {
+                  Alert.alert('Sin procesos', 'Sincronice primero en la pestaña Sync para descargar los tipos de proceso.');
+                  return;
+                }
+                if (!title.trim()) {
+                  Alert.alert('Campo requerido', 'Ingrese un título para la inspección u orden.');
+                  return;
+                }
                 onCreate({ typeId: chosenType, title: title.trim(), description: description.trim(), priority, address: address.trim() });
                 setTitle('');
                 setDescription('');
@@ -67,7 +74,7 @@ export function NewActivityModal({
               }}
               style={styles.btnPri}
             >
-              <Text style={{ color: '#fff', fontWeight: '700' }}>Crear</Text>
+              <Text style={{ color: '#fff', fontWeight: '700' }}>Guardar OT</Text>
             </TouchableOpacity>
           </View>
         </View>

@@ -163,7 +163,9 @@ function AppContent() {
     await db.runAsync(`UPDATE activities SET data = ?, updatedAt = ? WHERE id = ?`, [JSON.stringify(formData), now, selected.id]);
     await enqueueMutation('activity', 'upsert', selected.id, { data: formData, baseVersion: selected.version });
     await refreshLocal();
-    Alert.alert('Guardado Offline', 'Formulario guardado en SQLite local y encolado para sincronizar.');
+    const folio = selected.folio;
+    setSelected(null);
+    Alert.alert('¡Guardado con éxito!', `El avance de ${folio} se guardó en el dispositivo y quedó listo para sincronizar.`);
   };
 
   const executeWorkflowTransition = async (tr: WorkflowTransition) => {
@@ -278,7 +280,7 @@ function AppContent() {
     });
     setShowNewModal(false);
     await refreshLocal();
-    Alert.alert('Actividad Creada Offline', `Folio temporal ${folio}. Presione Sincronizar cuando tenga conexión.`);
+    Alert.alert('¡OT guardada con éxito!', `Se creó la actividad con folio ${folio}. Presione Sync cuando tenga conexión.`);
   };
 
   if (!ready) {
