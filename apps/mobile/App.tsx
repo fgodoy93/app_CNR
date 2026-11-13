@@ -35,6 +35,7 @@ import { GobStripe, BrandEmblem } from './src/components/GobBrand';
 import { MobileDashboard } from './src/components/MobileDashboard';
 import { MobileKanban } from './src/components/MobileKanban';
 import { MobileMapView } from './src/components/MobileMapView';
+import { MiniLeafletMap } from './src/components/MiniLeafletMap';
 import { COLORS, getStatusStyle } from './src/theme';
 
 type Tab = 'dashboard' | 'activities' | 'map' | 'sync';
@@ -510,12 +511,18 @@ function AppContent() {
 
           {/* GeoFeatures */}
           <View style={styles.card}>
-            <View style={styles.rowBetween}>
+            <View style={[styles.rowBetween, { marginBottom: 10 }]}>
               <Text style={styles.sectionHeader}>Puntos y Geometrías GPS ({actGeo.length})</Text>
               <TouchableOpacity onPress={() => setShowGeoModal(true)} style={styles.smallPriBtn}>
                 <Text style={styles.smallPriTxt}>+ Capturar GPS</Text>
               </TouchableOpacity>
             </View>
+            <MiniLeafletMap
+              geoFeatures={actGeo}
+              centerLat={selected.lat}
+              centerLng={selected.lng}
+              height={210}
+            />
             {actGeo.map((g) => {
               const geom = JSON.parse(g.geometry);
               const coordPreview =
@@ -523,9 +530,22 @@ function AppContent() {
                   ? `${geom.coordinates[1].toFixed(5)}, ${geom.coordinates[0].toFixed(5)}`
                   : `${geom.type} (${geom.type === 'Polygon' ? geom.coordinates[0].length : geom.coordinates.length} vértices)`;
               return (
-                <View key={g.id} style={styles.subItem}>
-                  <Text style={{ fontWeight: '700', fontSize: 13 }}>{g.kind} · {g.label || 'Sin nombre'}</Text>
-                  <Text style={styles.meta}>{coordPreview} {g.accuracy ? `· ±${Math.round(g.accuracy)} m` : ''}</Text>
+                <View key={g.id} style={[styles.subItem, styles.rowBetween]}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontWeight: '700', fontSize: 13 }}>{g.kind} · {g.label || 'Sin nombre'}</Text>
+                    <Text style={styles.meta}>{coordPreview} {g.accuracy ? `· ±${Math.round(g.accuracy)} m` : ''}</Text>
+                  </View>
+                  <TouchableOpacity
+                    onPress={async () => {
+                      const db = await getDb();
+                      await db.runAsync(`DELETE FROM geo_features WHERE id = ?`, [g.id]);
+                      setActGeo((prev) => prev.filter((x) => x.id !== g.id));
+                      await refreshLocal();
+                    }}
+                    style={{ paddingHorizontal: 8, paddingVertical: 4 }}
+                  >
+                    <Text style={{ color: COLORS.danger, fontSize: 12, fontWeight: '700' }}>Borrar</Text>
+                  </TouchableOpacity>
                 </View>
               );
             })}

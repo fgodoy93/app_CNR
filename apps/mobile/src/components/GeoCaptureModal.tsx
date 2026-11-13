@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Modal, View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import * as Location from 'expo-location';
 import { closeRing, type Position } from '@terreno/shared';
+import { MiniLeafletMap } from './MiniLeafletMap';
 import { COLORS } from '../theme';
 
 export type GeoKindChoice = 'POINT' | 'LINE' | 'TRACK' | 'POLYGON';
@@ -119,6 +120,18 @@ export function GeoCaptureModal({
             onChangeText={setObservations}
             placeholder="Observaciones del punto o tramo..."
           />
+
+          <MiniLeafletMap
+            draftPoints={points}
+            draftKind={kind}
+            height={175}
+            onTapCoordinate={(lng, lat) => {
+              setPoints((prev) => (kind === 'POINT' ? [[lng, lat]] : [...prev, [lng, lat]]));
+            }}
+          />
+          <Text style={{ fontSize: 11, color: COLORS.muted }}>
+            Toca el mapa para marcar vértices o usa el GPS del dispositivo:
+          </Text>
 
           <TouchableOpacity onPress={captureVertex} disabled={capturing} style={styles.gpsBtn}>
             <Text style={styles.gpsTxt}>
