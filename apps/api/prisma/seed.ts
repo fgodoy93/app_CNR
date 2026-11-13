@@ -138,6 +138,8 @@ async function main() {
               { key: 'obs_detalle', type: 'textarea', label: 'Detalle de las observaciones técnicas', hidden: true },
               { key: 'foto_evidencia', type: 'photo', label: 'Fotografía obligatoria en terreno', hidden: true, config: { allowGallery: false } },
               { key: 'caudal_medido', type: 'number', label: 'Caudal aforado (Litros / seg)', config: { min: 0, max: 5000 } },
+              { key: 'nota_voz', type: 'audio', label: 'Nota de voz en terreno' },
+              { key: 'dictado_voz', type: 'speech', label: 'Observaciones por dictado / transcripción de voz' },
               { key: 'firma_inspector', type: 'signature', label: 'Firma de conformidad del inspector', required: true },
             ],
             rules: [
