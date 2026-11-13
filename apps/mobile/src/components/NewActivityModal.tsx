@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Modal, View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
+import { COLORS } from '../theme';
 
 export function NewActivityModal({
   visible,
@@ -76,17 +77,17 @@ export function NewActivityModal({
 }
 
 const styles = StyleSheet.create({
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 16 },
-  card: { backgroundColor: '#fff', borderRadius: 14, padding: 16, gap: 10 },
-  title: { fontSize: 16, fontWeight: '800', color: '#0f4c81' },
-  label: { fontSize: 12, fontWeight: '700', color: '#475569' },
+  overlay: { flex: 1, backgroundColor: 'rgba(11,59,96,0.55)', justifyContent: 'center', padding: 16 },
+  card: { backgroundColor: COLORS.surface, borderRadius: 16, padding: 16, gap: 10, borderWidth: 1, borderColor: COLORS.border },
+  title: { fontSize: 16, fontWeight: '800', color: COLORS.primary },
+  label: { fontSize: 12, fontWeight: '700', color: COLORS.muted },
   row: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  chip: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: '#cbd5e1' },
-  chipActive: { backgroundColor: '#0f4c81', borderColor: '#0f4c81' },
-  chipTxt: { fontSize: 11, color: '#334155', fontWeight: '600' },
+  chip: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: COLORS.border },
+  chipActive: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
+  chipTxt: { fontSize: 11, color: COLORS.text, fontWeight: '600' },
   chipTxtActive: { color: '#fff' },
-  input: { borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 8, padding: 10, fontSize: 13 },
+  input: { borderWidth: 1, borderColor: COLORS.border, borderRadius: 10, padding: 10, fontSize: 13, color: COLORS.text },
   actions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8, marginTop: 6 },
-  btnSec: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 8, backgroundColor: '#e2e8f0' },
-  btnPri: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 8, backgroundColor: '#0f4c81' },
+  btnSec: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 10, backgroundColor: '#e2ebe7' },
+  btnPri: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 10, backgroundColor: COLORS.green },
 });

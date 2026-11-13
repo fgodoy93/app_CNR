@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Modal, View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import * as Location from 'expo-location';
 import { closeRing, type Position } from '@terreno/shared';
+import { COLORS } from '../theme';
 
 export type GeoKindChoice = 'POINT' | 'LINE' | 'TRACK' | 'POLYGON';
 
@@ -147,19 +148,19 @@ export function GeoCaptureModal({
 }
 
 const styles = StyleSheet.create({
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 16 },
-  card: { backgroundColor: '#fff', borderRadius: 14, padding: 16, gap: 10 },
-  title: { fontSize: 16, fontWeight: '800', color: '#0f4c81' },
+  overlay: { flex: 1, backgroundColor: 'rgba(11,59,96,0.55)', justifyContent: 'center', padding: 16 },
+  card: { backgroundColor: COLORS.surface, borderRadius: 16, padding: 16, gap: 10, borderWidth: 1, borderColor: COLORS.border },
+  title: { fontSize: 16, fontWeight: '800', color: COLORS.primary },
   kindRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  kindBtn: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: '#cbd5e1' },
-  kindBtnActive: { backgroundColor: '#0f4c81', borderColor: '#0f4c81' },
-  kindTxt: { fontSize: 12, color: '#334155', fontWeight: '600' },
+  kindBtn: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: COLORS.border },
+  kindBtnActive: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
+  kindTxt: { fontSize: 12, color: COLORS.text, fontWeight: '600' },
   kindTxtActive: { color: '#fff' },
-  input: { borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 8, padding: 10, fontSize: 13 },
-  gpsBtn: { backgroundColor: '#0284c7', padding: 12, borderRadius: 8, alignItems: 'center' },
+  input: { borderWidth: 1, borderColor: COLORS.border, borderRadius: 10, padding: 10, fontSize: 13, color: COLORS.text },
+  gpsBtn: { backgroundColor: COLORS.water, padding: 12, borderRadius: 10, alignItems: 'center' },
   gpsTxt: { color: '#fff', fontWeight: '700', fontSize: 13 },
-  info: { fontSize: 12, color: '#0f766e', fontWeight: '600' },
+  info: { fontSize: 12, color: COLORS.green, fontWeight: '600' },
   actions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8, marginTop: 6 },
-  btnSec: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 8, backgroundColor: '#e2e8f0' },
-  btnPri: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 8, backgroundColor: '#0f4c81' },
+  btnSec: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 10, backgroundColor: '#e2ebe7' },
+  btnPri: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 10, backgroundColor: COLORS.green },
 });

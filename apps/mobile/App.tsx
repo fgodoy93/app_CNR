@@ -28,6 +28,8 @@ import { enqueueMutation, syncAll } from './src/sync/syncEngine';
 import { DynamicFormMobile, type CapturedEvidence } from './src/components/DynamicFormMobile';
 import { GeoCaptureModal, type GeoKindChoice } from './src/components/GeoCaptureModal';
 import { NewActivityModal } from './src/components/NewActivityModal';
+import { GobStripe, BrandEmblem } from './src/components/GobBrand';
+import { COLORS, getStatusStyle } from './src/theme';
 
 type Tab = 'activities' | 'map' | 'sync';
 
@@ -289,14 +291,40 @@ function AppContent() {
       <View style={[styles.loginContainer, { paddingTop: topSafe, paddingBottom: bottomSafe }]}>
         <StatusBar style="dark" />
         <View style={styles.loginCard}>
-          <Text style={styles.brand}>TerrenoCNR Móvil</Text>
-          <Text style={styles.sub}>Comisión Nacional de Riego · Android / iOS Offline</Text>
-          <TextInput style={styles.input} value={apiUrlInput} onChangeText={setApiUrlInput} placeholder="URL API" autoCapitalize="none" />
-          <TextInput style={styles.input} value={email} onChangeText={setEmail} placeholder="Correo" autoCapitalize="none" />
-          <TextInput style={styles.input} value={password} onChangeText={setPassword} placeholder="Contraseña" secureTextEntry />
-          <TouchableOpacity onPress={handleLogin} style={styles.primaryBtn}>
-            <Text style={styles.primaryTxt}>Ingresar</Text>
-          </TouchableOpacity>
+          <GobStripe />
+          <View style={{ padding: 22, gap: 12 }}>
+            <View style={{ alignItems: 'center', gap: 6, marginBottom: 4 }}>
+              <BrandEmblem size={48} />
+              <Text style={styles.brand}>TerrenoCNR Móvil</Text>
+              <Text style={styles.sub}>Comisión Nacional de Riego · Ministerio del Medio Ambiente</Text>
+            </View>
+            <TextInput style={styles.input} value={apiUrlInput} onChangeText={setApiUrlInput} placeholder="URL API" autoCapitalize="none" />
+            <TextInput style={styles.input} value={email} onChangeText={setEmail} placeholder="Correo institucional" autoCapitalize="none" />
+            <TextInput style={styles.input} value={password} onChangeText={setPassword} placeholder="Contraseña" secureTextEntry />
+            <TouchableOpacity onPress={handleLogin} style={styles.primaryBtn}>
+              <Text style={styles.primaryTxt}>Ingresar a Terreno</Text>
+            </TouchableOpacity>
+            <View style={{ flexDirection: 'row', gap: 8, justifyContent: 'center', marginTop: 4 }}>
+              <TouchableOpacity
+                onPress={() => {
+                  setEmail('terreno@cnr.gob.cl');
+                  setPassword('Cnr2026!Demo');
+                }}
+                style={styles.demoChip}
+              >
+                <Text style={styles.demoChipTxt}>Inspector Terreno</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => {
+                  setEmail('admin@cnr.gob.cl');
+                  setPassword('Cnr2026!Demo');
+                }}
+                style={styles.demoChip}
+              >
+                <Text style={styles.demoChipTxt}>Admin CNR</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         </View>
       </View>
     );
@@ -304,26 +332,33 @@ function AppContent() {
 
   // Activity Detail Screen
   if (selected) {
+    const stStyle = getStatusStyle(selected.status);
     return (
       <View style={styles.container}>
         <StatusBar style="light" />
-        <View style={[styles.header, { paddingTop: topSafe + 8 }]}>
-          <TouchableOpacity onPress={() => setSelected(null)}>
-            <Text style={styles.headerLink}>← Volver</Text>
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>{selected.folio}</Text>
-          <TouchableOpacity onPress={saveOfflineProgress}>
-            <Text style={styles.headerLink}>Guardar</Text>
-          </TouchableOpacity>
+        <View style={[styles.headerWrap, { paddingTop: topSafe }]}>
+          <GobStripe />
+          <View style={styles.header}>
+            <TouchableOpacity onPress={() => setSelected(null)}>
+              <Text style={styles.headerLink}>← Volver</Text>
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>{selected.folio}</Text>
+            <TouchableOpacity onPress={saveOfflineProgress} style={styles.headerPill}>
+              <Text style={styles.headerPillTxt}>Guardar</Text>
+            </TouchableOpacity>
+          </View>
         </View>
         <ScrollView contentContainerStyle={{ padding: 14, gap: 14, paddingBottom: bottomSafe + 24 }}>
-          <View style={styles.card}>
+          <View style={[styles.card, { borderLeftWidth: 4, borderLeftColor: stStyle.border }]}>
             <View style={styles.rowBetween}>
-              <Text style={styles.badge}>{selected.status}</Text>
+              <Text style={[styles.badge, { backgroundColor: stStyle.bg, color: stStyle.fg }]}>{selected.status}</Text>
               <Text style={styles.meta}>Prioridad: {selected.priority} · {selected.progress}%</Text>
             </View>
             <Text style={styles.cardTitle}>{selected.title}</Text>
             {selected.address ? <Text style={styles.meta}>📍 {selected.address}</Text> : null}
+            <View style={styles.progressTrack}>
+              <View style={[styles.progressFill, { width: `${Math.min(100, Math.max(0, Number(selected.progress) || 0))}%` }]} />
+            </View>
           </View>
 
           {/* Workflow Transitions */}
@@ -432,11 +467,20 @@ function AppContent() {
   return (
     <View style={styles.container}>
       <StatusBar style="light" />
-      <View style={[styles.header, { paddingTop: topSafe + 8 }]}>
-        <Text style={styles.headerTitle}>TerrenoCNR</Text>
-        <TouchableOpacity onPress={handleSync} disabled={syncing}>
-          <Text style={styles.headerLink}>{syncing ? 'Sincronizando...' : `⟳ Sync (${pendingTotal})`}</Text>
-        </TouchableOpacity>
+      <View style={[styles.headerWrap, { paddingTop: topSafe }]}>
+        <GobStripe />
+        <View style={styles.header}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            <BrandEmblem size={30} />
+            <View>
+              <Text style={styles.headerTitle}>TerrenoCNR</Text>
+              <Text style={{ color: '#a7f3d0', fontSize: 10, fontWeight: '600' }}>CNR · Medio Ambiente</Text>
+            </View>
+          </View>
+          <TouchableOpacity onPress={handleSync} disabled={syncing} style={styles.headerPill}>
+            <Text style={styles.headerPillTxt}>{syncing ? 'Sincronizando...' : `⟳ Sync (${pendingTotal})`}</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {tab === 'activities' && (
@@ -469,19 +513,22 @@ function AppContent() {
             keyExtractor={(item) => item.id}
             contentContainerStyle={{ padding: 14, gap: 10 }}
             ListEmptyComponent={<Text style={styles.empty}>No hay actividades. Presione Sync.</Text>}
-            renderItem={({ item }) => (
-              <TouchableOpacity onPress={() => openActivity(item)} style={styles.card}>
-                <View style={styles.rowBetween}>
-                  <Text style={styles.folio}>{item.folio}</Text>
-                  <Text style={styles.badge}>{item.status}</Text>
-                </View>
-                <Text style={styles.cardTitle}>{item.title}</Text>
-                <Text style={styles.meta}>
-                  {item.typeName} · {item.priority} · {item.progress}%
-                </Text>
-                {item.address ? <Text style={styles.meta}>📍 {item.address}</Text> : null}
-              </TouchableOpacity>
-            )}
+            renderItem={({ item }) => {
+              const st = getStatusStyle(item.status);
+              return (
+                <TouchableOpacity onPress={() => openActivity(item)} style={[styles.card, { borderLeftWidth: 4, borderLeftColor: st.border }]}>
+                  <View style={styles.rowBetween}>
+                    <Text style={styles.folio}>{item.folio}</Text>
+                    <Text style={[styles.badge, { backgroundColor: st.bg, color: st.fg }]}>{item.status}</Text>
+                  </View>
+                  <Text style={styles.cardTitle}>{item.title}</Text>
+                  <Text style={styles.meta}>
+                    {item.typeName} · {item.priority} · {item.progress}%
+                  </Text>
+                  {item.address ? <Text style={styles.meta}>📍 {item.address}</Text> : null}
+                </TouchableOpacity>
+              );
+            }}
           />
         </View>
       )}
@@ -551,13 +598,13 @@ function AppContent() {
 
       {/* Bottom Tab Bar */}
       <View style={[styles.tabBar, { paddingBottom: bottomSafe + 8 }]}>
-        <TouchableOpacity onPress={() => setTab('activities')} style={styles.tabItem}>
+        <TouchableOpacity onPress={() => setTab('activities')} style={[styles.tabItem, tab === 'activities' && styles.tabItemActive]}>
           <Text style={[styles.tabTxt, tab === 'activities' && styles.tabTxtActive]}>📋 Actividades</Text>
         </TouchableOpacity>
-        <TouchableOpacity onPress={() => setTab('map')} style={styles.tabItem}>
+        <TouchableOpacity onPress={() => setTab('map')} style={[styles.tabItem, tab === 'map' && styles.tabItemActive]}>
           <Text style={[styles.tabTxt, tab === 'map' && styles.tabTxtActive]}>🗺️ GPS ({allGeo.length})</Text>
         </TouchableOpacity>
-        <TouchableOpacity onPress={() => setTab('sync')} style={styles.tabItem}>
+        <TouchableOpacity onPress={() => setTab('sync')} style={[styles.tabItem, tab === 'sync' && styles.tabItemActive]}>
           <Text style={[styles.tabTxt, tab === 'sync' && styles.tabTxtActive]}>🔄 Sync ({pendingTotal})</Text>
         </TouchableOpacity>
       </View>
@@ -576,37 +623,45 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  container: { flex: 1, backgroundColor: '#f1f5f9' },
-  loginContainer: { flex: 1, backgroundColor: '#f1f5f9', justifyContent: 'center', padding: 20 },
-  loginCard: { backgroundColor: '#fff', padding: 24, borderRadius: 14, gap: 12 },
-  brand: { fontSize: 22, fontWeight: '800', color: '#0f4c81', textAlign: 'center' },
-  sub: { fontSize: 12, color: '#64748b', textAlign: 'center', marginBottom: 8 },
-  input: { borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 8, padding: 10, backgroundColor: '#fff', fontSize: 13 },
-  primaryBtn: { backgroundColor: '#0f4c81', padding: 14, borderRadius: 10, alignItems: 'center' },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.bg },
+  container: { flex: 1, backgroundColor: COLORS.bg },
+  loginContainer: { flex: 1, backgroundColor: COLORS.bg, justifyContent: 'center', padding: 20 },
+  loginCard: { backgroundColor: COLORS.surface, borderRadius: 16, overflow: 'hidden', borderWidth: 1, borderColor: COLORS.border, elevation: 4 },
+  brand: { fontSize: 22, fontWeight: '800', color: COLORS.primary, textAlign: 'center' },
+  sub: { fontSize: 12, color: COLORS.green, fontWeight: '600', textAlign: 'center', marginBottom: 4 },
+  demoChip: { backgroundColor: COLORS.greenSoft, borderColor: COLORS.border, borderWidth: 1, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8 },
+  demoChipTxt: { fontSize: 11, fontWeight: '700', color: COLORS.primary },
+  input: { borderWidth: 1, borderColor: COLORS.border, borderRadius: 10, padding: 11, backgroundColor: COLORS.surface, fontSize: 13, color: COLORS.text },
+  primaryBtn: { backgroundColor: COLORS.primary, padding: 14, borderRadius: 10, alignItems: 'center' },
   primaryTxt: { color: '#fff', fontWeight: '700', fontSize: 14 },
-  smallPriBtn: { backgroundColor: '#0f4c81', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8 },
+  smallPriBtn: { backgroundColor: COLORS.green, paddingHorizontal: 13, paddingVertical: 9, borderRadius: 10 },
   smallPriTxt: { color: '#fff', fontWeight: '700', fontSize: 12 },
-  header: { backgroundColor: '#0f4c81', paddingTop: 42, paddingBottom: 14, paddingHorizontal: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  headerTitle: { color: '#fff', fontSize: 17, fontWeight: '700' },
-  headerLink: { color: '#bae6fd', fontSize: 13, fontWeight: '700' },
+  headerWrap: { backgroundColor: COLORS.primary },
+  header: { backgroundColor: COLORS.primary, paddingVertical: 12, paddingHorizontal: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  headerTitle: { color: '#fff', fontSize: 17, fontWeight: '800' },
+  headerLink: { color: '#a7f3d0', fontSize: 13, fontWeight: '700' },
+  headerPill: { backgroundColor: COLORS.green, paddingHorizontal: 11, paddingVertical: 6, borderRadius: 999 },
+  headerPillTxt: { color: '#fff', fontSize: 12, fontWeight: '700' },
   toolbar: { flexDirection: 'row', gap: 8, padding: 12, alignItems: 'center' },
-  filterChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, backgroundColor: '#e2e8f0', marginRight: 6, height: 30 },
-  filterChipActive: { backgroundColor: '#0f4c81' },
-  filterTxt: { fontSize: 11, fontWeight: '700', color: '#334155' },
-  card: { backgroundColor: '#fff', padding: 14, borderRadius: 12, borderWidth: 1, borderColor: '#e2e8f0' },
+  filterChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, backgroundColor: '#e2ebe7', marginRight: 6, height: 30 },
+  filterChipActive: { backgroundColor: COLORS.primary },
+  filterTxt: { fontSize: 11, fontWeight: '700', color: COLORS.text },
+  card: { backgroundColor: COLORS.surface, padding: 14, borderRadius: 12, borderWidth: 1, borderColor: COLORS.border, elevation: 1 },
   rowBetween: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  sectionHeader: { fontSize: 14, fontWeight: '800', color: '#0f4c81', marginBottom: 8 },
-  wfBtn: { backgroundColor: '#1e293b', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8 },
+  sectionHeader: { fontSize: 14, fontWeight: '800', color: COLORS.primary, marginBottom: 8 },
+  wfBtn: { backgroundColor: COLORS.green, paddingHorizontal: 12, paddingVertical: 9, borderRadius: 8 },
   wfBtnTxt: { color: '#fff', fontSize: 12, fontWeight: '700' },
-  subItem: { borderTopWidth: 1, borderTopColor: '#f1f5f9', paddingTop: 8, marginTop: 8 },
-  folio: { fontWeight: '800', color: '#0284c7', fontSize: 13 },
-  badge: { fontSize: 11, fontWeight: '700', color: '#1e40af', backgroundColor: '#dbeafe', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 },
-  cardTitle: { fontSize: 15, fontWeight: '700', color: '#0f172a', marginTop: 4 },
-  meta: { fontSize: 12, color: '#64748b', marginTop: 3 },
-  empty: { textAlign: 'center', color: '#64748b', marginTop: 40 },
-  tabBar: { flexDirection: 'row', borderTopWidth: 1, borderTopColor: '#cbd5e1', backgroundColor: '#fff', paddingBottom: 14, paddingTop: 10 },
-  tabItem: { flex: 1, alignItems: 'center' },
-  tabTxt: { fontSize: 12, fontWeight: '600', color: '#64748b' },
-  tabTxtActive: { color: '#0f4c81', fontWeight: '800' },
+  subItem: { borderTopWidth: 1, borderTopColor: COLORS.bg, paddingTop: 8, marginTop: 8 },
+  folio: { fontWeight: '800', color: COLORS.water, fontSize: 13 },
+  badge: { fontSize: 11, fontWeight: '700', color: COLORS.primary, backgroundColor: COLORS.waterSoft, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, overflow: 'hidden' },
+  cardTitle: { fontSize: 15, fontWeight: '700', color: COLORS.text, marginTop: 4 },
+  meta: { fontSize: 12, color: COLORS.muted, marginTop: 3 },
+  progressTrack: { height: 6, backgroundColor: '#e2ebe7', borderRadius: 999, marginTop: 10, overflow: 'hidden' },
+  progressFill: { height: 6, backgroundColor: COLORS.green, borderRadius: 999 },
+  empty: { textAlign: 'center', color: COLORS.muted, marginTop: 40 },
+  tabBar: { flexDirection: 'row', borderTopWidth: 1, borderTopColor: COLORS.border, backgroundColor: COLORS.surface, paddingTop: 0 },
+  tabItem: { flex: 1, alignItems: 'center', paddingTop: 10, borderTopWidth: 3, borderTopColor: 'transparent' },
+  tabItemActive: { borderTopColor: COLORS.green },
+  tabTxt: { fontSize: 12, fontWeight: '600', color: COLORS.muted },
+  tabTxtActive: { color: COLORS.primary, fontWeight: '800' },
 });
