@@ -1,10 +1,24 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { createEvidence } from '../services/evidences';
 import { evidenceMetaSchema } from '@terreno/shared';
-import { badRequest } from '../lib/errors';
+import { badRequest, notFound } from '../lib/errors';
+import { prisma } from '../db';
+import { storage } from '../lib/storage';
+import { getActivityForActor } from '../services/activities';
 
 export const evidencesRoutes: FastifyPluginAsync = async (app) => {
   app.addHook('preHandler', app.authenticate);
+
+  app.get('/:id/file', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const ev = await prisma.evidence.findUnique({ where: { id } });
+    if (!ev || ev.deletedAt || !ev.storageKey) throw notFound('Evidencia no encontrada');
+    await getActivityForActor(req.actor, ev.activityId);
+    const buf = await storage.get(ev.storageKey, ev.encrypted);
+    reply.header('Content-Type', ev.mimeType || 'application/octet-stream');
+    reply.header('Content-Disposition', `inline; filename="${ev.fileName || ev.id}"`);
+    return buf;
+  });
 
   app.post('/', async (req, reply) => {
     // Process multipart/form-data

@@ -1,0 +1,168 @@
+'use client';
+
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import {
+  LayoutDashboard,
+  ClipboardList,
+  MapPin,
+  FileSpreadsheet,
+  GitBranch,
+  Users,
+  Webhook,
+  ShieldCheck,
+  Bell,
+  LogOut,
+  Menu,
+  X,
+} from 'lucide-react';
+import { api, getToken, getUser, logout, type StoredUser } from '@/lib/api';
+
+const NAV = [
+  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/actividades', label: 'Actividades y OT', icon: ClipboardList },
+  { href: '/mapa', label: 'Mapa Terreno', icon: MapPin },
+  { href: '/formularios', label: 'Formularios', icon: FileSpreadsheet },
+  { href: '/workflows', label: 'Flujos de Trabajo', icon: GitBranch },
+  { href: '/usuarios', label: 'Usuarios y Unidades', icon: Users },
+  { href: '/integraciones', label: 'Integraciones / MCP', icon: Webhook },
+  { href: '/auditoria', label: 'Auditoría y Correos', icon: ShieldCheck },
+];
+
+export function AppShell({ title, children }: { title: string; children: React.ReactNode }) {
+  const pathname = usePathname();
+  const [user, setUser] = useState<StoredUser | null>(null);
+  const [unread, setUnread] = useState(0);
+  const [notifications, setNotifications] = useState<{ id: string; title: string; body?: string; readAt?: string | null; link?: string | null }[]>([]);
+  const [showNotifs, setShowNotifs] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  useEffect(() => {
+    if (!getToken()) {
+      window.location.href = '/';
+      return;
+    }
+    setUser(getUser());
+    api
+      .get<{ data: typeof notifications; unread: number }>('/api/v1/admin/notifications')
+      .then((res) => {
+        setNotifications(res.data);
+        setUnread(res.unread);
+      })
+      .catch(() => undefined);
+  }, []);
+
+  const markRead = async (id: string) => {
+    await api.post(`/api/v1/admin/notifications/${id}/read`);
+    setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, readAt: new Date().toISOString() } : n)));
+    setUnread((u) => Math.max(0, u - 1));
+  };
+
+  return (
+    <div className="min-h-screen flex bg-slate-50 text-slate-900">
+      {/* Sidebar */}
+      <aside
+        className={`fixed inset-y-0 left-0 z-40 w-64 bg-[#0f4c81] text-white flex flex-col transition-transform lg:static lg:translate-x-0 ${
+          mobileOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
+      >
+        <div className="h-16 px-5 flex items-center justify-between border-b border-white/15">
+          <div>
+            <div className="font-bold text-lg tracking-tight">TerrenoCNR</div>
+            <div className="text-[11px] text-blue-200">Comisión Nacional de Riego</div>
+          </div>
+          <button onClick={() => setMobileOpen(false)} className="lg:hidden text-white/80 hover:text-white">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
+          {NAV.map((item) => {
+            const Icon = item.icon;
+            const active = pathname === item.href || pathname.startsWith(item.href + '/');
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={() => setMobileOpen(false)}
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                  active ? 'bg-white/20 text-white' : 'text-blue-100 hover:bg-white/10 hover:text-white'
+                }`}
+              >
+                <Icon className="w-4 h-4 shrink-0" />
+                <span>{item.label}</span>
+              </Link>
+            );
+          })}
+        </nav>
+
+        <div className="p-4 border-t border-white/15 text-xs">
+          <div className="font-semibold truncate">{user?.name || 'Cargando...'}</div>
+          <div className="text-blue-200 truncate">{user?.role || ''} · {user?.unit?.code || 'CNR'}</div>
+          <button
+            onClick={logout}
+            className="mt-3 w-full flex items-center justify-center gap-2 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs font-medium"
+          >
+            <LogOut className="w-3.5 h-3.5" />
+            Cerrar sesión
+          </button>
+        </div>
+      </aside>
+
+      {/* Main */}
+      <div className="flex-1 flex flex-col min-w-0">
+        <header className="h-16 bg-white border-b border-slate-200 px-4 lg:px-8 flex items-center justify-between sticky top-0 z-30">
+          <div className="flex items-center gap-3">
+            <button onClick={() => setMobileOpen(true)} className="lg:hidden p-2 rounded-lg hover:bg-slate-100">
+              <Menu className="w-5 h-5" />
+            </button>
+            <h1 className="text-lg font-semibold text-slate-800 truncate">{title}</h1>
+          </div>
+
+          <div className="relative">
+            <button
+              onClick={() => setShowNotifs((v) => !v)}
+              className="relative p-2 rounded-lg hover:bg-slate-100 text-slate-600"
+              aria-label="Notificaciones"
+            >
+              <Bell className="w-5 h-5" />
+              {unread > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 bg-red-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                  {unread}
+                </span>
+              )}
+            </button>
+
+            {showNotifs && (
+              <div className="absolute right-0 mt-2 w-80 bg-white border border-slate-200 rounded-xl shadow-xl z-50 max-h-96 overflow-y-auto">
+                <div className="px-4 py-3 border-b border-slate-100 font-semibold text-sm flex justify-between items-center">
+                  <span>Notificaciones</span>
+                  <span className="text-xs text-slate-500">{unread} sin leer</span>
+                </div>
+                {notifications.length === 0 ? (
+                  <div className="p-4 text-sm text-slate-500 text-center">Sin notificaciones</div>
+                ) : (
+                  notifications.map((n) => (
+                    <div
+                      key={n.id}
+                      onClick={() => !n.readAt && markRead(n.id)}
+                      className={`p-3 border-b border-slate-100 text-sm cursor-pointer hover:bg-slate-50 ${
+                        !n.readAt ? 'bg-blue-50/50' : ''
+                      }`}
+                    >
+                      <div className="font-medium text-slate-800">{n.title}</div>
+                      {n.body && <div className="text-xs text-slate-500 mt-0.5">{n.body}</div>}
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
+        </header>
+
+        <main className="flex-1 p-4 lg:p-8 max-w-7xl w-full mx-auto">{children}</main>
+      </div>
+    </div>
+  );
+}

@@ -10,6 +10,7 @@ import {
   serializeActivity,
 } from '../services/activities';
 import { loadWorkflow, loadFormDefinition } from '../services/activities';
+import { generateDocument } from '../services/documents';
 import { availableTransitions } from '@terreno/shared';
 import { activityCreateSchema, activityUpdateSchema, transitionSchema } from '@terreno/shared';
 
@@ -17,11 +18,35 @@ export const activitiesRoutes: FastifyPluginAsync = async (app) => {
   app.addHook('preHandler', app.authenticate);
 
   app.get('/', async (req) => {
+    const { status, priority, typeId, q } = req.query as {
+      status?: string;
+      priority?: string;
+      typeId?: string;
+      q?: string;
+    };
     const list = await prisma.activity.findMany({
-      where: activityScope(req.actor),
+      where: {
+        AND: [
+          activityScope(req.actor),
+          ...(status ? [{ status }] : []),
+          ...(priority ? [{ priority: priority as never }] : []),
+          ...(typeId ? [{ typeId }] : []),
+          ...(q
+            ? [
+                {
+                  OR: [
+                    { folio: { contains: q, mode: 'insensitive' as const } },
+                    { title: { contains: q, mode: 'insensitive' as const } },
+                    { address: { contains: q, mode: 'insensitive' as const } },
+                  ],
+                },
+              ]
+            : []),
+        ],
+      },
       include: activityInclude,
       orderBy: { createdAt: 'desc' },
-      take: 100,
+      take: 200,
     });
     return { data: list.map(serializeActivity) };
   });
@@ -39,11 +64,39 @@ export const activitiesRoutes: FastifyPluginAsync = async (app) => {
     const transitions = availableTransitions(wf, { status: act.status, assigneeId: act.assigneeId }, req.actor);
     const formDef = await loadFormDefinition(act.formVersionId);
 
+    const [geoFeatures, evidences, transitionHistory, documents, comments] = await Promise.all([
+      prisma.geoFeature.findMany({ where: { activityId: act.id, deletedAt: null }, orderBy: { capturedAt: 'asc' } }),
+      prisma.evidence.findMany({
+        where: { activityId: act.id, deletedAt: null },
+        include: { uploadedBy: { select: { id: true, name: true } } },
+        orderBy: { capturedAt: 'asc' },
+      }),
+      prisma.activityTransition.findMany({
+        where: { activityId: act.id },
+        include: { user: { select: { id: true, name: true } } },
+        orderBy: { createdAt: 'desc' },
+      }),
+      prisma.document.findMany({
+        where: { activityId: act.id },
+        orderBy: { createdAt: 'desc' },
+      }),
+      prisma.activityComment.findMany({
+        where: { activityId: act.id },
+        include: { user: { select: { id: true, name: true } } },
+        orderBy: { createdAt: 'asc' },
+      }),
+    ]);
+
     return {
       activity: serializeActivity(act),
       availableTransitions: transitions,
       formDefinition: formDef,
       workflow: wf,
+      geoFeatures,
+      evidences,
+      transitionHistory,
+      documents,
+      comments,
     };
   });
 
@@ -59,5 +112,25 @@ export const activitiesRoutes: FastifyPluginAsync = async (app) => {
     const { transition, comment } = transitionSchema.parse(req.body);
     const updated = await executeTransition(req.actor, id, transition, comment);
     return serializeActivity(updated);
+  });
+
+  app.post('/:id/documents', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const act = await getActivityForActor(req.actor, id);
+    const { kind } = (req.body as { kind?: 'REPORT' | 'VOUCHER' }) ?? {};
+    const doc = await generateDocument(act.id, kind === 'VOUCHER' ? 'VOUCHER' : 'REPORT', req.actor.userId ?? undefined);
+    return reply.status(201).send(doc);
+  });
+
+  app.post('/:id/comments', async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const act = await getActivityForActor(req.actor, id);
+    const { body } = (req.body as { body?: string }) ?? {};
+    if (!body?.trim()) return reply.status(400).send({ message: 'Comentario vacío' });
+    const comment = await prisma.activityComment.create({
+      data: { activityId: act.id, userId: req.actor.userId, body: body.trim() },
+      include: { user: { select: { id: true, name: true } } },
+    });
+    return reply.status(201).send(comment);
   });
 };

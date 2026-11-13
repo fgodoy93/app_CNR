@@ -15,10 +15,15 @@ import { evidencesRoutes } from './routes/evidences';
 import { syncRoutes } from './routes/sync';
 import { reportsRoutes } from './routes/reports';
 import { publicRoutes } from './routes/public';
+import { adminRoutes } from './routes/admin';
+import { formsRoutes, workflowsRoutes } from './routes/forms';
+import { integrationsRoutes } from './routes/integrations';
 import { processEmailOutbox } from './lib/mailer';
 import { processWebhookDeliveries } from './services/webhooks';
 import { storage } from './lib/storage';
 import { prisma } from './db';
+import { AppError } from './lib/errors';
+import { ZodError } from 'zod';
 
 export async function buildApp() {
   const app = Fastify({
@@ -63,6 +68,23 @@ export async function buildApp() {
   });
   await app.register(swaggerUi, { routePrefix: '/docs' });
 
+  app.setErrorHandler((err, _req, reply) => {
+    if (err instanceof AppError) {
+      return reply.status(err.statusCode).send({ code: err.code, message: err.message, details: err.details });
+    }
+    if (err instanceof ZodError) {
+      return reply.status(400).send({
+        code: 'VALIDATION_ERROR',
+        message: 'Datos de entrada inválidos',
+        details: err.issues,
+      });
+    }
+    app.log.error(err);
+    const status = (err as { statusCode?: number }).statusCode ?? 500;
+    const msg = err instanceof Error ? err.message : 'Error interno del servidor';
+    return reply.status(status).send({ code: 'INTERNAL_ERROR', message: msg });
+  });
+
   // Metrics collection hook
   app.addHook('onRequest', async (req) => {
     (req.raw as any).startTime = process.hrtime();
@@ -102,6 +124,10 @@ export async function buildApp() {
   await app.register(evidencesRoutes, { prefix: '/api/v1/evidences' });
   await app.register(syncRoutes, { prefix: '/api/v1/sync' });
   await app.register(reportsRoutes, { prefix: '/api/v1/reports' });
+  await app.register(formsRoutes, { prefix: '/api/v1/forms' });
+  await app.register(workflowsRoutes, { prefix: '/api/v1/workflows' });
+  await app.register(integrationsRoutes, { prefix: '/api/v1/integrations' });
+  await app.register(adminRoutes, { prefix: '/api/v1/admin' });
   await app.register(publicRoutes, { prefix: '/api/v1' });
 
   return app;

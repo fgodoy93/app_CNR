@@ -34,15 +34,15 @@ export async function processSyncPush(
       switch (m.entity) {
         case 'activity': {
           if (m.op === 'upsert') {
-            const res = await createActivity(actor, {
-              id: m.entityId,
-              ...(m.payload as any),
-            });
-            if (!res.created) {
-              // Existed: update
+            const exists = await prisma.activity.findUnique({ where: { id: m.entityId }, select: { id: true } });
+            if (exists) {
               const upd = await updateActivity(actor, m.entityId, m.payload as any, { allowStale: true });
               serverVer = upd.version;
             } else {
+              const res = await createActivity(actor, {
+                id: m.entityId,
+                ...(m.payload as any),
+              });
               serverVer = res.activity.version;
             }
           }
