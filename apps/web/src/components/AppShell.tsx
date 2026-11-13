@@ -20,15 +20,30 @@ import {
 import { api, getToken, getUser, logout, type StoredUser } from '@/lib/api';
 import { BrandMark } from '@/components/BrandMark';
 
-const NAV = [
-  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/actividades', label: 'Actividades y OT', icon: ClipboardList },
-  { href: '/mapa', label: 'Mapa Terreno', icon: MapPin },
-  { href: '/formularios', label: 'Formularios', icon: FileSpreadsheet },
-  { href: '/workflows', label: 'Flujos de Trabajo', icon: GitBranch },
-  { href: '/usuarios', label: 'Usuarios y Unidades', icon: Users },
-  { href: '/integraciones', label: 'Integraciones / MCP', icon: Webhook },
-  { href: '/auditoria', label: 'Auditoría y Correos', icon: ShieldCheck },
+const NAV_GROUPS = [
+  {
+    title: 'Operación Terreno',
+    items: [
+      { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+      { href: '/actividades', label: 'Actividades y OT', icon: ClipboardList },
+      { href: '/mapa', label: 'Mapa Terreno', icon: MapPin },
+    ],
+  },
+  {
+    title: 'Diseño de Procesos',
+    items: [
+      { href: '/formularios', label: 'Formularios', icon: FileSpreadsheet },
+      { href: '/workflows', label: 'Flujos de Trabajo', icon: GitBranch },
+    ],
+  },
+  {
+    title: 'Administración',
+    items: [
+      { href: '/usuarios', label: 'Usuarios y Unidades', icon: Users },
+      { href: '/integraciones', label: 'Integraciones / MCP', icon: Webhook },
+      { href: '/auditoria', label: 'Auditoría y Correos', icon: ShieldCheck },
+    ],
+  },
 ];
 
 export function AppShell({ title, children }: { title: string; children: React.ReactNode }) {
@@ -82,26 +97,35 @@ export function AppShell({ title, children }: { title: string; children: React.R
           </button>
         </div>
 
-        <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
-          {NAV.map((item) => {
-            const Icon = item.icon;
-            const active = pathname === item.href || pathname.startsWith(item.href + '/');
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={() => setMobileOpen(false)}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
-                  active
-                    ? 'bg-[#146c43] text-white shadow-sm border-l-4 border-emerald-300'
-                    : 'text-slate-200 hover:bg-white/10 hover:text-white'
-                }`}
-              >
-                <Icon className="w-4 h-4 shrink-0" />
-                <span>{item.label}</span>
-              </Link>
-            );
-          })}
+        <nav className="flex-1 p-3 space-y-4 overflow-y-auto">
+          {NAV_GROUPS.map((group) => (
+            <div key={group.title}>
+              <div className="px-3 mb-1.5 text-[10px] font-bold uppercase tracking-wider text-emerald-300/80">
+                {group.title}
+              </div>
+              <div className="space-y-1">
+                {group.items.map((item) => {
+                  const Icon = item.icon;
+                  const active = pathname === item.href || pathname.startsWith(item.href + '/');
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      onClick={() => setMobileOpen(false)}
+                      className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+                        active
+                          ? 'bg-[#146c43] text-white shadow-sm border-l-4 border-emerald-300'
+                          : 'text-slate-200 hover:bg-white/10 hover:text-white'
+                      }`}
+                    >
+                      <Icon className="w-4 h-4 shrink-0" />
+                      <span>{item.label}</span>
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </nav>
 
         <div className="p-4 border-t border-white/15 text-xs bg-black/15">

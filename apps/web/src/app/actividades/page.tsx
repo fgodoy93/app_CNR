@@ -67,11 +67,21 @@ export default function ActividadesPage() {
     }
   };
 
+  const filteredActivities = activities.filter((a) => {
+    const matchText =
+      !q.trim() ||
+      a.folio?.toLowerCase().includes(q.toLowerCase()) ||
+      a.title?.toLowerCase().includes(q.toLowerCase()) ||
+      a.address?.toLowerCase().includes(q.toLowerCase());
+    const matchStatus = !status || a.status === status || (status === 'EN_REVISION' && a.status === 'EN_APROBACION');
+    return matchText && matchStatus;
+  });
+
   return (
     <AppShell title="Gestión de Actividades y Órdenes de Trabajo">
       {error && <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">{error}</div>}
 
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
         <div className="flex flex-wrap gap-2 items-center">
           <div className="relative">
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
@@ -80,24 +90,11 @@ export default function ActividadesPage() {
               onChange={(e) => setQ(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && load()}
               placeholder="Buscar folio, título o dirección..."
-              className="pl-9 pr-3 py-2 border border-slate-300 rounded-lg text-sm bg-white w-64"
+              className="pl-9 pr-3 py-2 border border-[#d8e3df] rounded-lg text-sm bg-white w-72 focus:outline-none focus:ring-2 focus:ring-[#0e7490]"
             />
           </div>
-          <select
-            value={status}
-            onChange={(e) => setStatus(e.target.value)}
-            className="px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white"
-          >
-            <option value="">Todos los estados</option>
-            <option value="PENDIENTE">Pendiente</option>
-            <option value="ASIGNADA">Asignada</option>
-            <option value="EN_EJECUCION">En ejecución</option>
-            <option value="EN_REVISION">En revisión</option>
-            <option value="EN_APROBACION">En aprobación</option>
-            <option value="CERRADA">Cerrada</option>
-          </select>
-          <button onClick={load} className="px-4 py-2 bg-slate-800 text-white rounded-lg text-sm font-medium">
-            Filtrar
+          <button onClick={load} className="px-3.5 py-2 bg-white border border-[#d8e3df] hover:bg-slate-50 text-slate-700 rounded-lg text-sm font-medium">
+            Actualizar
           </button>
         </div>
 
@@ -132,10 +129,33 @@ export default function ActividadesPage() {
         </div>
       </div>
 
+      {/* Quick 1-click status filter pills */}
+      <div className="flex flex-wrap items-center gap-2 mb-5">
+        {[
+          { key: '', label: `Todas (${activities.length})` },
+          ...KANBAN_COLS.map((c) => ({
+            key: c.key,
+            label: `${c.label} (${activities.filter((a) => a.status === c.key || (c.key === 'EN_REVISION' && a.status === 'EN_APROBACION')).length})`,
+          })),
+        ].map((pill) => (
+          <button
+            key={pill.key || 'ALL'}
+            onClick={() => setStatus(pill.key)}
+            className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors border ${
+              status === pill.key
+                ? 'bg-[#0b3b60] text-white border-[#0b3b60]'
+                : 'bg-white text-slate-600 border-[#d8e3df] hover:bg-slate-50'
+            }`}
+          >
+            {pill.label}
+          </button>
+        ))}
+      </div>
+
       {viewMode === 'kanban' ? (
         <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-5 gap-4 items-start">
           {KANBAN_COLS.map((col) => {
-            const colItems = activities.filter((a) => a.status === col.key || (col.key === 'EN_REVISION' && a.status === 'EN_APROBACION'));
+            const colItems = filteredActivities.filter((a) => a.status === col.key || (col.key === 'EN_REVISION' && a.status === 'EN_APROBACION'));
             return (
               <div key={col.key} className={`bg-[#f7faf9] rounded-xl border border-[#d8e3df] border-t-4 ${col.accent} p-3`}>
                 <div className="flex items-center justify-between mb-3">
@@ -194,10 +214,10 @@ export default function ActividadesPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {activities.length === 0 ? (
+              {filteredActivities.length === 0 ? (
                 <tr><td colSpan={7} className="px-4 py-8 text-center text-slate-400">Sin resultados</td></tr>
               ) : (
-                activities.map((a) => (
+                filteredActivities.map((a) => (
                   <tr key={a.id} className="hover:bg-slate-50">
                     <td className="px-4 py-3 font-mono font-semibold text-blue-700">
                       <Link href={`/actividades/${a.id}`}>{a.folio}</Link>
