@@ -11,6 +11,7 @@ import { FileText, MapPin, Upload, Save, CheckCircle } from 'lucide-react';
 function ActividadDetailInner() {
   const { id } = useParams<{ id: string }>();
   const [detail, setDetail] = useState<any>(null);
+  const [qrData, setQrData] = useState<{ payload: string; qrDataUrl: string } | null>(null);
   const [formValues, setFormValues] = useState<Record<string, unknown>>({});
   const [comment, setComment] = useState('');
   const [msg, setMsg] = useState<string | null>(null);
@@ -24,6 +25,10 @@ function ActividadDetailInner() {
         setFormValues(res.activity.data ?? {});
       })
       .catch((e) => setError(e.message));
+    api
+      .get<{ payload: string; qrDataUrl: string }>(`/api/v1/activities/${id}/qr`)
+      .then(setQrData)
+      .catch(() => undefined);
   };
 
   useEffect(() => {
@@ -253,6 +258,26 @@ function ActividadDetailInner() {
 
         {/* Documents & Traceability */}
         <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-5">
+          {qrData && (
+            <div className="p-3.5 rounded-xl border border-[#d8e3df] bg-[#f2f6f4] flex items-center gap-4">
+              <img src={qrData.qrDataUrl} alt={`QR ${detail.activity.folio}`} className="w-24 h-24 rounded-lg border border-white shadow-sm bg-white p-1" />
+              <div className="min-w-0 flex-1">
+                <div className="text-xs font-bold uppercase tracking-wide text-[#0b3b60]">QR de Acceso Rápido (Terreno)</div>
+                <div className="text-sm font-mono font-bold text-[#146c43] mt-0.5">{detail.activity.folio}</div>
+                <p className="text-xs text-slate-600 mt-1">
+                  Escanee este código desde la app móvil TerrenoCNR para abrir directamente los detalles de esta OT.
+                </p>
+                <a
+                  href={qrData.qrDataUrl}
+                  download={`qr-${detail.activity.folio}.png`}
+                  className="inline-block mt-2 text-xs font-semibold text-[#0e7490] hover:underline"
+                >
+                  Descargar imagen QR →
+                </a>
+              </div>
+            </div>
+          )}
+
           <div>
             <h3 className="font-semibold text-slate-800 mb-3">Documentos y Comprobantes PDF</h3>
             {(detail.documents ?? []).length === 0 ? (

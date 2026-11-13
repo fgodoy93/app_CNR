@@ -1,4 +1,5 @@
 import type { FastifyPluginAsync } from 'fastify';
+import QRCode from 'qrcode';
 import { prisma } from '../db';
 import {
   createActivity,
@@ -120,6 +121,14 @@ export const activitiesRoutes: FastifyPluginAsync = async (app) => {
     const { kind } = (req.body as { kind?: 'REPORT' | 'VOUCHER' }) ?? {};
     const doc = await generateDocument(act.id, kind === 'VOUCHER' ? 'VOUCHER' : 'REPORT', req.actor.userId ?? undefined);
     return reply.status(201).send(doc);
+  });
+
+  app.get('/:id/qr', async (req) => {
+    const { id } = req.params as { id: string };
+    const act = await getActivityForActor(req.actor, id);
+    const payload = `TERRENOCNR:OT:${act.id}:${act.folio}`;
+    const qrDataUrl = await QRCode.toDataURL(payload, { width: 280, margin: 2 });
+    return { id: act.id, folio: act.folio, payload, qrDataUrl };
   });
 
   app.post('/:id/comments', async (req, reply) => {

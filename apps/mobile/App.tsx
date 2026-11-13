@@ -27,6 +27,7 @@ import { enqueueMutation, syncAll } from './src/sync/syncEngine';
 import { DynamicFormMobile, type CapturedEvidence } from './src/components/DynamicFormMobile';
 import { GeoCaptureModal, type GeoKindChoice } from './src/components/GeoCaptureModal';
 import { NewActivityModal } from './src/components/NewActivityModal';
+import { QrScannerModal } from './src/components/QrScannerModal';
 import { GobStripe, BrandEmblem } from './src/components/GobBrand';
 import { MobileDashboard } from './src/components/MobileDashboard';
 import { MobileKanban } from './src/components/MobileKanban';
@@ -66,6 +67,7 @@ function AppContent() {
 
   const [showGeoModal, setShowGeoModal] = useState(false);
   const [showNewModal, setShowNewModal] = useState(false);
+  const [showOtScanner, setShowOtScanner] = useState(false);
   const [syncing, setSyncing] = useState(false);
 
   const refreshLocal = async () => {
@@ -283,6 +285,75 @@ function AppContent() {
     Alert.alert('¡OT guardada con éxito!', `Se creó la actividad con folio ${folio}. Presione Sync cuando tenga conexión.`);
   };
 
+  const handleScanOtQr = async (raw: string) => {
+    setShowOtScanner(false);
+    const trimmed = raw.trim();
+    let candidateId = '';
+    let candidateFolio = '';
+
+    if (trimmed.startsWith('TERRENOCNR:OT:')) {
+      const parts = trimmed.split(':');
+      candidateId = parts[2] ?? '';
+      candidateFolio = parts[3] ?? '';
+    } else if (trimmed.includes('/actividades/')) {
+      candidateId = trimmed.split('/actividades/')[1]?.split(/[?#]/)[0] ?? '';
+    } else {
+      candidateId = trimmed;
+      candidateFolio = trimmed;
+    }
+
+    const db = await getDb();
+    let found = await db.getFirstAsync<any>(
+      `SELECT * FROM activities WHERE id = ? OR UPPER(folio) = UPPER(?) LIMIT 1`,
+      [candidateId, candidateFolio || candidateId],
+    );
+
+    if (!found && (candidateId || candidateFolio)) {
+      try {
+        const res = await apiFetch<{ data: any[] }>(
+          `/api/v1/activities?q=${encodeURIComponent(candidateFolio || candidateId)}`,
+        );
+        const match = res.data?.find(
+          (a) => a.id === candidateId || a.folio?.toUpperCase() === (candidateFolio || candidateId).toUpperCase(),
+        );
+        if (match) {
+          await db.runAsync(
+            `INSERT OR REPLACE INTO activities (id, folio, typeId, typeName, title, description, priority, status, progress, formVersionId, data, address, lat, lng, version, updatedAt)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+              match.id,
+              match.folio,
+              match.typeId,
+              match.type?.name ?? 'Actividad',
+              match.title,
+              match.description ?? '',
+              match.priority,
+              match.status,
+              match.progress ?? 0,
+              match.formVersionId ?? null,
+              JSON.stringify(match.data ?? {}),
+              match.address ?? '',
+              match.lat ?? null,
+              match.lng ?? null,
+              match.version ?? 1,
+              match.updatedAt ?? new Date().toISOString(),
+            ],
+          );
+          await refreshLocal();
+          found = await db.getFirstAsync<any>(`SELECT * FROM activities WHERE id = ?`, [match.id]);
+        }
+      } catch {
+        // Offline or unreachable; fall through to alert
+      }
+    }
+
+    if (found) {
+      await openActivity(found);
+    } else {
+      Alert.alert('OT no encontrada', `No se encontró una orden asociada al código "${trimmed}". Sincronice si la OT es reciente.`);
+    }
+  };
+
   if (!ready) {
     return (
       <View style={styles.center}>
@@ -482,9 +553,14 @@ function AppContent() {
               <Text style={{ color: '#a7f3d0', fontSize: 10, fontWeight: '600' }}>CNR · Min. Agricultura</Text>
             </View>
           </View>
-          <TouchableOpacity onPress={handleSync} disabled={syncing} style={styles.headerPill}>
-            <Text style={styles.headerPillTxt}>{syncing ? 'Sincronizando...' : `⟳ Sync (${pendingTotal})`}</Text>
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+            <TouchableOpacity onPress={() => setShowOtScanner(true)} style={[styles.headerPill, { backgroundColor: COLORS.water }]}>
+              <Text style={styles.headerPillTxt}>📷 QR OT</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={handleSync} disabled={syncing} style={styles.headerPill}>
+              <Text style={styles.headerPillTxt}>{syncing ? 'Sincronizando...' : `⟳ Sync (${pendingTotal})`}</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
 
@@ -622,6 +698,7 @@ function AppContent() {
       </View>
 
       <NewActivityModal visible={showNewModal} types={types} onCreate={handleCreateActivity} onClose={() => setShowNewModal(false)} />
+      <QrScannerModal visible={showOtScanner} onScanned={handleScanOtQr} onClose={() => setShowOtScanner(false)} />
     </View>
   );
 }
