@@ -24,6 +24,11 @@ describe('TerrenoCNR API E2E (PostgreSQL real)', () => {
   });
 
   afterAll(async () => {
+    if (activityId) {
+      await import('../src/db').then(({ prisma }) =>
+        prisma.activity.delete({ where: { id: activityId } }).catch(() => undefined),
+      );
+    }
     await app.close();
   });
 

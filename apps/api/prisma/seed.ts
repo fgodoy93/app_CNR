@@ -183,9 +183,11 @@ async function main() {
     });
   }
 
-  // 7. Datos de demostración precargados (si aún no existen los folios demo)
-  const existingDemo = await prisma.activity.findUnique({ where: { folio: 'INS-2026-000001' } });
+  // 7. Datos de demostración precargados (limpia registros E2E si los hay y carga los folios demo)
+  await prisma.activity.deleteMany({ where: { title: { contains: '(E2E)' } } });
+  const existingDemo = await prisma.activity.findUnique({ where: { folio: 'OT-2026-000001' } });
   if (!existingDemo) {
+    await prisma.folioCounter.deleteMany({ where: { prefix: 'INS' } });
     const insType = await prisma.activityType.findUniqueOrThrow({ where: { key: 'inspeccion_obras' } });
     const otType = await prisma.activityType.findUniqueOrThrow({ where: { key: 'orden_trabajo' } });
     const vtType = await prisma.activityType.findUniqueOrThrow({ where: { key: 'visita_tecnica' } });
