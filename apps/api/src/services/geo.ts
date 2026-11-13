@@ -98,3 +98,17 @@ export async function listGeoFeaturesForMap(actor: Actor) {
     };
   });
 }
+
+export async function deleteGeoFeature(actor: Actor, id: string) {
+  const existing = await prisma.geoFeature.findUnique({ where: { id } });
+  if (!existing) throw notFound('Geometría no encontrada');
+  await getActivityForActor(actor, existing.activityId);
+  await prisma.geoFeature.delete({ where: { id } });
+  return { ok: true };
+}
+
+export async function clearActivityGeoFeatures(actor: Actor, activityId: string) {
+  await getActivityForActor(actor, activityId);
+  const res = await prisma.geoFeature.deleteMany({ where: { activityId } });
+  return { ok: true, deleted: res.count };
+}

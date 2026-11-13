@@ -1,5 +1,5 @@
 import type { FastifyPluginAsync } from 'fastify';
-import { addGeoFeature, listGeoFeaturesForMap } from '../services/geo';
+import { addGeoFeature, clearActivityGeoFeatures, deleteGeoFeature, listGeoFeaturesForMap } from '../services/geo';
 import { geoFeatureInputSchema, toGeoJSON, toKML, toCSV } from '@terreno/shared';
 
 export const geoRoutes: FastifyPluginAsync = async (app) => {
@@ -14,6 +14,16 @@ export const geoRoutes: FastifyPluginAsync = async (app) => {
     const input = geoFeatureInputSchema.parse(req.body);
     const result = await addGeoFeature(req.actor, input as any);
     return reply.status(201).send(result);
+  });
+
+  app.delete('/:id', async (req) => {
+    const { id } = req.params as { id: string };
+    return deleteGeoFeature(req.actor, id);
+  });
+
+  app.delete('/activity/:activityId', async (req) => {
+    const { activityId } = req.params as { activityId: string };
+    return clearActivityGeoFeatures(req.actor, activityId);
   });
 
   app.get('/export/geojson', async (req, reply) => {

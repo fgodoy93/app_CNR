@@ -127,10 +127,20 @@ export function GeoCaptureModal({
           </TouchableOpacity>
 
           {points.length > 0 && (
-            <Text style={styles.info}>
-              Vértices capturados: {points.length} · Último: {points[points.length - 1]![1].toFixed(5)}, {points[points.length - 1]![0].toFixed(5)}
-              {lastAcc !== null ? ` (±${Math.round(lastAcc)} m)` : ''}
-            </Text>
+            <View style={{ gap: 6 }}>
+              <Text style={styles.info}>
+                Vértices capturados: {points.length} · Último: {points[points.length - 1]![1].toFixed(5)}, {points[points.length - 1]![0].toFixed(5)}
+                {lastAcc !== null ? ` (±${Math.round(lastAcc)} m)` : ''}
+              </Text>
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                <TouchableOpacity onPress={() => setPoints((p) => p.slice(0, -1))} style={styles.btnSec}>
+                  <Text style={{ fontSize: 12, fontWeight: '600', color: COLORS.text }}>Deshacer último</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => setPoints([])} style={[styles.btnSec, { backgroundColor: COLORS.dangerSoft }]}>
+                  <Text style={{ fontSize: 12, fontWeight: '600', color: COLORS.danger }}>Limpiar puntos</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
           )}
 
           <View style={styles.actions}>

@@ -151,6 +151,29 @@ function ActividadDetailInner() {
     }
   };
 
+  const deleteGeoFeature = async (geoId: string) => {
+    setError(null);
+    try {
+      await api.delete(`/api/v1/geo/${geoId}`);
+      setMsg('Geometría eliminada del mapa.');
+      load();
+    } catch (e: any) {
+      setError(e.message);
+    }
+  };
+
+  const clearAllGeoFeatures = async () => {
+    setError(null);
+    try {
+      await api.delete(`/api/v1/geo/activity/${detail.activity.id}`);
+      setDraftPoints([]);
+      setMsg('Se limpiaron todas las geometrías de esta actividad.');
+      load();
+    } catch (e: any) {
+      setError(e.message);
+    }
+  };
+
   const uploadEvidence = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -421,6 +444,42 @@ function ActividadDetailInner() {
                 </div>
               )}
             </div>
+
+            {/* Lista de geometrías guardadas con botón Eliminar / Limpiar todo */}
+            {(detail.geoFeatures ?? []).length > 0 && (
+              <div className="pt-3 border-t border-slate-100 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold uppercase tracking-wide text-slate-500">
+                    Elementos guardados ({detail.geoFeatures.length})
+                  </span>
+                  <button
+                    type="button"
+                    onClick={clearAllGeoFeatures}
+                    className="inline-flex items-center gap-1 text-[11px] font-semibold text-red-600 hover:underline"
+                  >
+                    <Trash2 className="w-3 h-3" /> Limpiar todos
+                  </button>
+                </div>
+                <div className="max-h-40 overflow-y-auto space-y-1.5 pr-1">
+                  {detail.geoFeatures.map((gf: any) => (
+                    <div key={gf.id} className="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg bg-[#f8fbfa] border border-[#d8e3df] text-xs">
+                      <div className="min-w-0">
+                        <span className="font-bold text-[#0e7490] mr-1.5">{gf.kind}</span>
+                        <span className="text-slate-700 truncate">{gf.label || gf.code}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => deleteGeoFeature(gf.id)}
+                        className="text-red-600 hover:text-red-800 p-1 shrink-0"
+                        title="Borrar geometría"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Documents & Traceability */}
