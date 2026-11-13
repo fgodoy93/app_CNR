@@ -83,6 +83,10 @@ export async function syncAll(): Promise<SyncSummary> {
   // 2. Upload pending evidences
   const pendingEvidences = await db.getAllAsync<any>(`SELECT * FROM evidences WHERE synced = 0 LIMIT 50`);
   let uploadedEvidences = 0;
+  if (pendingEvidences.length > 0) {
+    // Ensure access token is fresh before XHR multipart upload
+    await apiFetch('/api/v1/auth/me').catch(() => undefined);
+  }
   const base = await getApiUrl();
   const token = await getToken();
 

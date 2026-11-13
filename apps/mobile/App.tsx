@@ -233,7 +233,15 @@ function AppContent() {
     const db = await getDb();
     const now = new Date().toISOString();
     await db.runAsync(`UPDATE activities SET data = ?, updatedAt = ? WHERE id = ?`, [JSON.stringify(formData), now, selected.id]);
-    await enqueueMutation('activity', 'upsert', selected.id, { data: formData, baseVersion: selected.version });
+    const payload: Record<string, unknown> = { data: formData, baseVersion: selected.version };
+    if (String(selected.folio || '').startsWith('LOCAL-')) {
+      payload.typeId = selected.typeId;
+      payload.title = selected.title;
+      payload.description = selected.description || null;
+      payload.priority = selected.priority;
+      payload.address = selected.address || null;
+    }
+    await enqueueMutation('activity', 'upsert', selected.id, payload);
     await refreshLocal();
     const folio = selected.folio;
     setSelected(null);
@@ -764,7 +772,42 @@ function AppContent() {
             <Text style={{ fontSize: 13, fontWeight: '700', color: isOnline ? COLORS.green : COLORS.amber, marginBottom: 4 }}>
               {isOnline ? `🟢 En línea (${networkType})` : '🟠 Sin conexión (Modo Offline)'}
             </Text>
-            <Text style={styles.meta}>Mutaciones en cola: {queueItems.length}</Text>
+            <Text style={styles.meta}>
+              Mutaciones pendientes: {queueItems.filter((q) => q.status === 'PENDING').length}
+            </Text>
+            {queueItems.some((q) => q.status === 'REJECTED') && (
+              <View style={{ backgroundColor: '#fef2f2', borderRadius: 8, padding: 10, marginVertical: 6, borderWidth: 1, borderColor: '#fecaca' }}>
+                <Text style={{ fontSize: 12, fontWeight: '700', color: '#b91c1c' }}>
+                  Mutaciones con error / rechazadas: {queueItems.filter((q) => q.status === 'REJECTED').length}
+                </Text>
+                <Text style={{ fontSize: 11, color: '#991b1b', marginTop: 2 }} numberOfLines={2}>
+                  {queueItems.find((q) => q.status === 'REJECTED')?.error || 'Error al sincronizar en servidor'}
+                </Text>
+                <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
+                  <TouchableOpacity
+                    onPress={async () => {
+                      const db = await getDb();
+                      await db.runAsync(`UPDATE sync_queue SET status = 'PENDING', error = NULL WHERE status = 'REJECTED'`);
+                      await refreshLocal();
+                      void handleSync(false);
+                    }}
+                    style={{ backgroundColor: '#0284c7', borderRadius: 6, paddingHorizontal: 10, paddingVertical: 6 }}
+                  >
+                    <Text style={{ color: '#fff', fontSize: 11, fontWeight: '700' }}>Reintentar fallidas</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={async () => {
+                      const db = await getDb();
+                      await db.runAsync(`DELETE FROM sync_queue WHERE status = 'REJECTED'`);
+                      await refreshLocal();
+                    }}
+                    style={{ backgroundColor: '#fee2e2', borderRadius: 6, paddingHorizontal: 10, paddingVertical: 6 }}
+                  >
+                    <Text style={{ color: '#b91c1c', fontSize: 11, fontWeight: '700' }}>Descartar fallidas</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
             <Text style={styles.meta}>Evidencias pendientes de subida: {pendingEvCount}</Text>
             {lastAutoSyncAt && <Text style={styles.meta}>Última sync: {lastAutoSyncAt}</Text>}
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 12, paddingTop: 10, borderTopWidth: 1, borderTopColor: '#eef3f1' }}>
