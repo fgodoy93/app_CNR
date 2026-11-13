@@ -1,0 +1,468 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------- Organización y acceso ----------
+
+model Unit {
+  id        String   @id @default(uuid())
+  code      String   @unique
+  name      String
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users         User[]
+  activities    Activity[]
+  activityTypes ActivityType[]
+  forms         FormTemplate[]
+}
+
+model Role {
+  id          String   @id @default(uuid())
+  key         String   @unique
+  name        String
+  description String?
+  permissions String[]
+  system      Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  users User[]
+}
+
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  name          String
+  rut           String?
+  phone         String?
+  position      String?
+  passwordHash  String
+  roleId        String
+  unitId        String?
+  active        Boolean   @default(true)
+  mustChangePwd Boolean   @default(false)
+  failedLogins  Int       @default(0)
+  lockedUntil   DateTime?
+  lastLoginAt   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  role                Role                @relation(fields: [roleId], references: [id])
+  unit                Unit?               @relation(fields: [unitId], references: [id])
+  refreshTokens       RefreshToken[]
+  assignedActivities  Activity[]          @relation("assignee")
+  createdActivities   Activity[]          @relation("creator")
+  notifications       Notification[]
+  evidences           Evidence[]
+  geoFeatures         GeoFeature[]
+  transitions         ActivityTransition[]
+  comments            ActivityComment[]
+}
+
+model RefreshToken {
+  id        String    @id @default(uuid())
+  userId    String
+  tokenHash String    @unique
+  device    String?
+  ip        String?
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// ---------- Configuración de procesos ----------
+
+model FormTemplate {
+  id             String   @id @default(uuid())
+  key            String   @unique
+  name           String
+  description    String?
+  unitId         String?
+  currentVersion Int      @default(0)
+  draft          Json
+  archived       Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  unit          Unit?          @relation(fields: [unitId], references: [id])
+  versions      FormVersion[]
+  activityTypes ActivityType[]
+}
+
+model FormVersion {
+  id          String   @id @default(uuid())
+  templateId  String
+  version     Int
+  definition  Json
+  publishedAt DateTime @default(now())
+  publishedBy String?
+
+  template   FormTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  activities Activity[]
+
+  @@unique([templateId, version])
+}
+
+model Workflow {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  definition  Json
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  activityTypes ActivityType[]
+}
+
+model ActivityType {
+  id             String   @id @default(uuid())
+  key            String   @unique
+  name           String
+  prefix         String   @unique
+  color          String   @default("#0ea5e9")
+  icon           String?
+  formTemplateId String?
+  workflowId     String?
+  unitId         String?
+  active         Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  formTemplate FormTemplate? @relation(fields: [formTemplateId], references: [id])
+  workflow     Workflow?     @relation(fields: [workflowId], references: [id])
+  unit         Unit?         @relation(fields: [unitId], references: [id])
+  activities   Activity[]
+}
+
+model FolioCounter {
+  prefix String
+  year   Int
+  value  Int    @default(0)
+
+  @@id([prefix, year])
+}
+
+// ---------- Operación en terreno ----------
+
+enum Priority {
+  BAJA
+  MEDIA
+  ALTA
+  CRITICA
+}
+
+model Activity {
+  id             String    @id @default(uuid())
+  folio          String    @unique
+  typeId         String
+  title          String
+  description    String?
+  priority       Priority  @default(MEDIA)
+  status         String
+  progress       Int       @default(0)
+  assigneeId     String?
+  createdById    String?
+  unitId         String?
+  formVersionId  String?
+  data           Json      @default("{}")
+  externalData   Json      @default("{}")
+  externalRef    String?
+  externalSource String?
+  lat            Float?
+  lng            Float?
+  address        String?
+  scheduledAt    DateTime?
+  dueAt          DateTime?
+  startedAt      DateTime?
+  completedAt    DateTime?
+  closedAt       DateTime?
+  version        Int       @default(1)
+  deletedAt      DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  type        ActivityType          @relation(fields: [typeId], references: [id])
+  assignee    User?                 @relation("assignee", fields: [assigneeId], references: [id])
+  createdBy   User?                 @relation("creator", fields: [createdById], references: [id])
+  unit        Unit?                 @relation(fields: [unitId], references: [id])
+  formVersion FormVersion?          @relation(fields: [formVersionId], references: [id])
+  geoFeatures GeoFeature[]
+  evidences   Evidence[]
+  transitions ActivityTransition[]
+  comments    ActivityComment[]
+  documents   Document[]
+
+  @@unique([externalSource, externalRef])
+  @@index([status])
+  @@index([assigneeId])
+  @@index([unitId])
+  @@index([updatedAt])
+}
+
+enum GeoKind {
+  POINT
+  LINE
+  POLYGON
+  TRACK
+}
+
+model GeoFeature {
+  id           String    @id
+  code         String    @unique
+  activityId   String
+  kind         GeoKind
+  geometry     Json
+  fieldKey     String?
+  label        String?
+  description  String?
+  status       String?
+  observations String?
+  accuracy     Float?
+  altitude     Float?
+  lengthM      Float?
+  areaM2       Float?
+  capturedAt   DateTime
+  capturedById String?
+  deletedAt    DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  activity   Activity   @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  capturedBy User?      @relation(fields: [capturedById], references: [id])
+  evidences  Evidence[]
+
+  @@index([activityId])
+}
+
+enum EvidenceKind {
+  PHOTO
+  FILE
+  SIGNATURE
+  AUDIO
+  NOTE
+}
+
+model Evidence {
+  id           String       @id
+  activityId   String
+  geoFeatureId String?
+  kind         EvidenceKind
+  fieldKey     String?
+  fileName     String?
+  mimeType     String?
+  size         Int?
+  sha256       String?
+  storageKey   String?
+  encrypted    Boolean      @default(false)
+  note         String?
+  transcript   String?
+  source       String?
+  lat          Float?
+  lng          Float?
+  accuracy     Float?
+  capturedAt   DateTime
+  uploadedById String?
+  deletedAt    DateTime?
+  createdAt    DateTime     @default(now())
+
+  activity   Activity    @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  geoFeature GeoFeature? @relation(fields: [geoFeatureId], references: [id])
+  uploadedBy User?       @relation(fields: [uploadedById], references: [id])
+
+  @@index([activityId])
+}
+
+model ActivityTransition {
+  id            String   @id @default(uuid())
+  activityId    String
+  transitionKey String
+  label         String
+  fromStatus    String
+  toStatus      String
+  approvalLevel Int?
+  comment       String?
+  userId        String?
+  apiClientId   String?
+  createdAt     DateTime @default(now())
+
+  activity Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  user     User?    @relation(fields: [userId], references: [id])
+
+  @@index([activityId])
+}
+
+model ActivityComment {
+  id         String   @id @default(uuid())
+  activityId String
+  userId     String?
+  body       String
+  createdAt  DateTime @default(now())
+
+  activity Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  user     User?    @relation(fields: [userId], references: [id])
+}
+
+enum DocumentKind {
+  REPORT
+  VOUCHER
+}
+
+model Document {
+  id          String       @id @default(uuid())
+  activityId  String
+  kind        DocumentKind
+  verifyCode  String       @unique
+  storageKey  String
+  sha256      String
+  size        Int
+  generatedBy String?
+  createdAt   DateTime     @default(now())
+
+  activity Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+
+  @@index([activityId])
+}
+
+// ---------- Sincronización offline ----------
+
+model SyncMutation {
+  mutationId String   @id
+  deviceId   String
+  userId     String
+  entity     String
+  entityId   String
+  status     String
+  message    String?
+  createdAt  DateTime @default(now())
+
+  @@index([userId])
+}
+
+// ---------- Notificaciones ----------
+
+model Notification {
+  id        String    @id @default(uuid())
+  userId    String
+  title     String
+  body      String?
+  link      String?
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt])
+}
+
+model EmailOutbox {
+  id          String    @id @default(uuid())
+  to          String[]
+  subject     String
+  html        String
+  attachments Json      @default("[]")
+  status      String    @default("PENDING")
+  attempts    Int       @default(0)
+  lastError   String?
+  nextAttempt DateTime  @default(now())
+  sentAt      DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([status, nextAttempt])
+}
+
+// ---------- Integraciones ----------
+
+model ApiClient {
+  id         String    @id @default(uuid())
+  name       String
+  keyPrefix  String    @unique
+  keyHash    String
+  scopes     String[]
+  active     Boolean   @default(true)
+  lastUsedAt DateTime?
+  createdBy  String?
+  createdAt  DateTime  @default(now())
+}
+
+model WebhookSubscription {
+  id         String   @id @default(uuid())
+  name       String
+  url        String
+  secretEnc  String
+  events     String[]
+  active     Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  deliveries WebhookDelivery[]
+}
+
+model WebhookDelivery {
+  id             String    @id @default(uuid())
+  subscriptionId String
+  event          String
+  payload        Json
+  status         String    @default("PENDING")
+  attempts       Int       @default(0)
+  responseCode   Int?
+  lastError      String?
+  nextAttemptAt  DateTime  @default(now())
+  deliveredAt    DateTime?
+  createdAt      DateTime  @default(now())
+
+  subscription WebhookSubscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  @@index([status, nextAttemptAt])
+}
+
+/// Conector REST para consultar sistemas externos y precargar formularios.
+model Connector {
+  id          String   @id @default(uuid())
+  key         String   @unique
+  name        String
+  description String?
+  method      String   @default("GET")
+  /// URL con placeholders {{activity.externalRef}}, {{query}}
+  urlTemplate String
+  headersEnc  String?
+  /// timeout en ms
+  timeoutMs   Int      @default(8000)
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// ---------- Auditoría y sistema ----------
+
+model AuditLog {
+  id          String   @id @default(uuid())
+  entity      String
+  entityId    String
+  action      String
+  userId      String?
+  userName    String?
+  apiClientId String?
+  changes     Json?
+  ip          String?
+  createdAt   DateTime @default(now())
+
+  @@index([entity, entityId])
+  @@index([createdAt])
+}
+
+model Setting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+}

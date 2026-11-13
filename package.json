@@ -1,0 +1,21 @@
+{
+  "name": "terreno-cnr",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Plataforma web y móvil para la toma de información en terreno (inspecciones, OT, visitas técnicas)",
+  "workspaces": [
+    "packages/*",
+    "apps/api",
+    "apps/web"
+  ],
+  "scripts": {
+    "test": "npm run test --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "dev:api": "npm run dev -w @terreno/api",
+    "dev:web": "npm run dev -w @terreno/web",
+    "build": "npm run build --workspaces --if-present"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
