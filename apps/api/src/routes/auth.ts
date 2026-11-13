@@ -6,7 +6,7 @@ import { randomToken, sha256 } from '../lib/crypto';
 import { loginSchema } from '@terreno/shared';
 
 export const authRoutes: FastifyPluginAsync = async (app) => {
-  app.post('/login', async (req, reply) => {
+  app.post('/login', { config: { rateLimit: { max: 15, timeWindow: '1 minute' } } }, async (req, reply) => {
     const body = loginSchema.parse(req.body);
 
     const user = await prisma.user.findUnique({
@@ -70,7 +70,7 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
     });
   });
 
-  app.post('/refresh', async (req, reply) => {
+  app.post('/refresh', { config: { rateLimit: { max: 20, timeWindow: '1 minute' } } }, async (req, reply) => {
     const { refreshToken } = req.body as { refreshToken?: string };
     if (!refreshToken) throw badRequest('Falta refreshToken');
 

@@ -20,6 +20,7 @@ import { formsRoutes, workflowsRoutes } from './routes/forms';
 import { integrationsRoutes } from './routes/integrations';
 import { processEmailOutbox } from './lib/mailer';
 import { processWebhookDeliveries } from './services/webhooks';
+import { getSystemHealth, runHealthMonitor } from './services/monitor';
 import { storage } from './lib/storage';
 import { prisma } from './db';
 import { AppError } from './lib/errors';
@@ -101,16 +102,7 @@ export async function buildApp() {
   });
 
   // Base endpoints: Health & Metrics
-  app.get('/health', async () => {
-    const dbOk = await prisma.$queryRaw`SELECT 1`.then(() => true).catch(() => false);
-    const storageOk = await storage.ping();
-    return {
-      status: dbOk && storageOk ? 'ok' : 'degraded',
-      db: dbOk,
-      storage: storageOk,
-      timestamp: new Date().toISOString(),
-    };
-  });
+  app.get('/health', async () => getSystemHealth());
 
   app.get(
     '/metrics',
@@ -152,7 +144,10 @@ async function start() {
         processEmailOutbox(app.log).catch((err) => app.log.error(err, 'Error worker email'));
         processWebhookDeliveries(app.log).catch((err) => app.log.error(err, 'Error worker webhooks'));
       }, 10000);
-      app.log.info('Workers de background activos (Email Outbox & Webhooks)');
+      setInterval(() => {
+        runHealthMonitor(app.log).catch((err) => app.log.error(err, 'Error monitor salud'));
+      }, 60000);
+      app.log.info('Workers de background activos (Email Outbox, Webhooks & Monitor)');
     }
   } catch (err) {
     app.log.error(err);

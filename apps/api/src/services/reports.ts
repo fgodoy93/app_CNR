@@ -3,6 +3,11 @@ import { prisma } from '../db';
 import { activityScope } from './activities';
 import type { Actor } from '../types';
 
+function safeCell(v: unknown): string {
+  const s = v === null || v === undefined ? '' : String(v);
+  return /^[=+\-@\t\r]/.test(s) ? `'${s}` : s;
+}
+
 export async function generateActivitiesExcel(actor: Actor): Promise<Buffer> {
   const activities = await prisma.activity.findMany({
     where: activityScope(actor),
@@ -57,17 +62,17 @@ export async function generateActivitiesExcel(actor: Actor): Promise<Buffer> {
 
   for (const a of activities) {
     sheet.addRow({
-      folio: a.folio,
-      title: a.title,
-      type: a.type.name,
-      unit: a.unit?.name || 'General',
-      status: a.status,
-      priority: a.priority,
+      folio: safeCell(a.folio),
+      title: safeCell(a.title),
+      type: safeCell(a.type.name),
+      unit: safeCell(a.unit?.name || 'General'),
+      status: safeCell(a.status),
+      priority: safeCell(a.priority),
       progress: a.progress,
-      assignee: a.assignee?.name || 'Sin asignar',
+      assignee: safeCell(a.assignee?.name || 'Sin asignar'),
       lat: a.lat || '',
       lng: a.lng || '',
-      address: a.address || '',
+      address: safeCell(a.address || ''),
       evidences: a._count.evidences,
       geopoints: a._count.geoFeatures,
       createdAt: a.createdAt.toISOString(),

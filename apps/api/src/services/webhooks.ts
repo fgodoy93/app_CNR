@@ -1,6 +1,7 @@
 import { prisma, type Tx } from '../db';
 import { decryptString, hmacSha256 } from '../lib/crypto';
 import { webhookDeliveries } from '../lib/metrics';
+import { assertSafeOutboundUrl } from '../lib/urlSafety';
 
 export async function emitEvent(event: string, payload: unknown, tx: Tx = prisma) {
   // Find active subscriptions that match this event or all events ('*')
@@ -60,6 +61,7 @@ export async function processWebhookDeliveries(log: {
     const signature = hmacSha256(secret, body);
 
     try {
+      assertSafeOutboundUrl(sub.url);
       const res = await fetch(sub.url, {
         method: 'POST',
         headers: {

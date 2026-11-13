@@ -100,7 +100,7 @@ export function MobileMapView({ activities, geoFeatures, onSelectActivity }: Mob
     }
 
     var bounds = [];
-    var acts = ${JSON.stringify(actMarkers)};
+    var acts = ${JSON.stringify(actMarkers).replace(/</g, '\\u003c')};
     acts.forEach(function(a) {
       bounds.push([a.lat, a.lng]);
       L.circleMarker([a.lat, a.lng], {
@@ -115,7 +115,7 @@ export function MobileMapView({ activities, geoFeatures, onSelectActivity }: Mob
         .bindTooltip(a.folio, { permanent: true, direction: 'top', offset: [0, -8], className: 'cnr-map-label' });
     });
 
-    var feats = ${JSON.stringify(features)};
+    var feats = ${JSON.stringify(features).replace(/</g, '\\u003c')};
     feats.forEach(function(f) {
       if (!f || !f.geometry) return;
       var refTxt = (f.label || f.kind || '').slice(0, 24);

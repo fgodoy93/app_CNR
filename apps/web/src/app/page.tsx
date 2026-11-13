@@ -27,6 +27,7 @@ export default function LoginPage() {
       if (!res.ok) throw new Error(data.message || 'Error en inicio de sesión');
 
       localStorage.setItem('tc_token', data.accessToken);
+      if (data.refreshToken) localStorage.setItem('tc_refresh_token', data.refreshToken);
       localStorage.setItem('tc_user', JSON.stringify(data.user));
       window.location.href = '/dashboard';
     } catch (err: any) {

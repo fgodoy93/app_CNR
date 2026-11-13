@@ -89,7 +89,7 @@ export function MiniLeafletMap({
         .bindTooltip('Mi ubicación', { permanent: true, direction: 'top', offset: [0, -8], className: 'cnr-user-label' });
     }
 
-    var feats = ${JSON.stringify(feats)};
+    var feats = ${JSON.stringify(feats).replace(/</g, '\\u003c')};
     feats.forEach(function(f) {
       if (!f || !f.geometry) return;
       var layer = L.geoJSON(f.geometry, {

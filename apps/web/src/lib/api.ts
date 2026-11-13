@@ -27,20 +27,60 @@ export function getUser(): StoredUser | null {
 
 export function logout() {
   if (typeof window === 'undefined') return;
+  const rt = localStorage.getItem('tc_refresh_token');
+  if (rt) {
+    fetch(`${API_BASE}/api/v1/auth/logout`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refreshToken: rt }),
+    }).catch(() => undefined);
+  }
   localStorage.removeItem('tc_token');
+  localStorage.removeItem('tc_refresh_token');
   localStorage.removeItem('tc_user');
   window.location.href = '/';
 }
 
-async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const token = getToken();
-  const headers = new Headers(init.headers);
-  if (token) headers.set('Authorization', `Bearer ${token}`);
-  if (init.body && !(init.body instanceof FormData) && !headers.has('Content-Type')) {
-    headers.set('Content-Type', 'application/json');
+async function tryRefreshToken(): Promise<string | null> {
+  if (typeof window === 'undefined') return null;
+  const rt = localStorage.getItem('tc_refresh_token');
+  if (!rt) return null;
+  try {
+    const res = await fetch(`${API_BASE}/api/v1/auth/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refreshToken: rt }),
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { accessToken?: string; refreshToken?: string };
+    if (data?.accessToken) {
+      localStorage.setItem('tc_token', data.accessToken);
+      if (data.refreshToken) localStorage.setItem('tc_refresh_token', data.refreshToken);
+      return data.accessToken;
+    }
+  } catch {
+    // ignore
   }
+  return null;
+}
 
-  const res = await fetch(`${API_BASE}${path}`, { ...init, headers });
+async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const send = (tok: string | null) => {
+    const headers = new Headers(init.headers);
+    if (tok) headers.set('Authorization', `Bearer ${tok}`);
+    if (init.body && !(init.body instanceof FormData) && !headers.has('Content-Type')) {
+      headers.set('Content-Type', 'application/json');
+    }
+    return fetch(`${API_BASE}${path}`, { ...init, headers });
+  };
+
+  let res = await send(getToken());
+  if (res.status === 401) {
+    const fresh = await tryRefreshToken();
+    if (fresh) {
+      res = await send(fresh);
+    }
+  }
   if (res.status === 401) {
     logout();
     throw new Error('Sesión expirada');

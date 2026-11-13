@@ -5,6 +5,7 @@ import { requirePermission } from '../plugins/auth';
 import { audit } from '../lib/audit';
 import { encryptString, decryptString, randomToken, sha256 } from '../lib/crypto';
 import { notFound } from '../lib/errors';
+import { assertSafeOutboundUrl } from '../lib/urlSafety';
 
 const apiClientSchema = z.object({
   name: z.string().min(2).max(120),
@@ -78,6 +79,7 @@ export const integrationsRoutes: FastifyPluginAsync = async (app) => {
 
   app.post('/webhooks', { preHandler: [requirePermission('integrations.manage')] }, async (req, reply) => {
     const input = webhookSchema.parse(req.body);
+    assertSafeOutboundUrl(input.url);
     const secret = input.secret ?? randomToken(24);
     const sub = await prisma.webhookSubscription.create({
       data: {
@@ -112,6 +114,7 @@ export const integrationsRoutes: FastifyPluginAsync = async (app) => {
 
   app.post('/connectors', { preHandler: [requirePermission('integrations.manage')] }, async (req, reply) => {
     const input = connectorSchema.parse(req.body);
+    assertSafeOutboundUrl(input.urlTemplate);
     const created = await prisma.connector.create({
       data: {
         key: input.key,
