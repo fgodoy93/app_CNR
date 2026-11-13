@@ -8,6 +8,10 @@ export async function getDb(): Promise<SQLite.SQLiteDatabase> {
       const db = await SQLite.openDatabaseAsync('terreno_cnr_offline.db');
       await db.execAsync(`
         PRAGMA journal_mode = WAL;
+        CREATE TABLE IF NOT EXISTS kv (
+          key TEXT PRIMARY KEY,
+          value TEXT NOT NULL
+        );
         CREATE TABLE IF NOT EXISTS activities (
           id TEXT PRIMARY KEY,
           folio TEXT NOT NULL,
