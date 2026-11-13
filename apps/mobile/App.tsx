@@ -121,11 +121,11 @@ function AppContent() {
   const handleLogin = async () => {
     try {
       await setApiUrl(apiUrlInput);
-      const res = await apiFetch<{ accessToken: string; user: any }>('/api/v1/auth/login', {
+      const res = await apiFetch<{ accessToken: string; refreshToken?: string; user: any }>('/api/v1/auth/login', {
         method: 'POST',
         body: JSON.stringify({ email, password, device: 'mobile-app' }),
       });
-      await setSession(res.accessToken, res.user);
+      await setSession(res.accessToken, res.user, res.refreshToken);
       setUser(res.user);
       setLoggedIn(true);
       await handleSync();

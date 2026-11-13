@@ -1,6 +1,7 @@
 import { getDb } from '../db/sqlite';
 
 const KEY_TOKEN = 'tc_token';
+const KEY_REFRESH = 'tc_refresh_token';
 const KEY_USER = 'tc_user';
 const KEY_API_URL = 'tc_api_url';
 const KEY_DEVICE_ID = 'tc_device_id';
@@ -35,9 +36,10 @@ export async function getToken(): Promise<string | null> {
   return kvGet(KEY_TOKEN);
 }
 
-export async function setSession(token: string, user: unknown) {
+export async function setSession(token: string, user: unknown, refreshToken?: string) {
   await kvSet(KEY_TOKEN, token);
   await kvSet(KEY_USER, JSON.stringify(user));
+  if (refreshToken) await kvSet(KEY_REFRESH, refreshToken);
 }
 
 export async function getStoredUser(): Promise<{ id: string; name: string; email: string; role: string; permissions: string[] } | null> {
@@ -52,6 +54,7 @@ export async function getStoredUser(): Promise<{ id: string; name: string; email
 
 export async function clearSession() {
   await kvDel(KEY_TOKEN);
+  await kvDel(KEY_REFRESH);
   await kvDel(KEY_USER);
 }
 
@@ -66,15 +69,44 @@ export async function getDeviceId(): Promise<string> {
 
 export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
   const base = await getApiUrl();
-  const token = await getToken();
-  const headers = new Headers(init.headers);
-  if (token) headers.set('Authorization', `Bearer ${token}`);
-  if (init.body && !(init.body instanceof FormData) && !headers.has('Content-Type')) {
-    headers.set('Content-Type', 'application/json');
+
+  const doRequest = async (tok: string | null) => {
+    const headers = new Headers(init.headers);
+    if (tok) headers.set('Authorization', `Bearer ${tok}`);
+    if (init.body && !(init.body instanceof FormData) && !headers.has('Content-Type')) {
+      headers.set('Content-Type', 'application/json');
+    }
+    return fetch(`${base}${path}`, { ...init, headers });
+  };
+
+  let res = await doRequest(await getToken());
+
+  // Si el accessToken expiró (401), intentar renovarlo automáticamente con el refreshToken de 30 días
+  if (res.status === 401 && path !== '/api/v1/auth/login' && path !== '/api/v1/auth/refresh') {
+    const rt = await kvGet(KEY_REFRESH);
+    if (rt) {
+      const refRes = await fetch(`${base}/api/v1/auth/refresh`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refreshToken: rt }),
+      });
+      if (refRes.ok) {
+        const refData = (await refRes.json()) as { accessToken?: string };
+        if (refData?.accessToken) {
+          await kvSet(KEY_TOKEN, refData.accessToken);
+          res = await doRequest(refData.accessToken);
+        }
+      }
+    }
   }
-  const res = await fetch(`${base}${path}`, { ...init, headers });
+
   const text = await res.text();
   const data = text ? JSON.parse(text) : null;
-  if (!res.ok) throw new Error(data?.message || `Error HTTP ${res.status}`);
+  if (!res.ok) {
+    if (res.status === 401) {
+      throw new Error('Sesión expirada. Cierre sesión y vuelva a ingresar (sus datos locales no se pierden).');
+    }
+    throw new Error(data?.message || `Error HTTP ${res.status}`);
+  }
   return data as T;
 }
