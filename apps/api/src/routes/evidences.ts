@@ -6,6 +6,8 @@ import { prisma } from '../db';
 import { storage } from '../lib/storage';
 import { getActivityForActor } from '../services/activities';
 
+const SAFE_INLINE_MIMES = new Set(['image/jpeg', 'image/png', 'image/webp', 'application/pdf']);
+
 export const evidencesRoutes: FastifyPluginAsync = async (app) => {
   app.addHook('preHandler', app.authenticate);
 
@@ -15,8 +17,12 @@ export const evidencesRoutes: FastifyPluginAsync = async (app) => {
     if (!ev || ev.deletedAt || !ev.storageKey) throw notFound('Evidencia no encontrada');
     await getActivityForActor(req.actor, ev.activityId);
     const buf = await storage.get(ev.storageKey, ev.encrypted);
-    reply.header('Content-Type', ev.mimeType || 'application/octet-stream');
-    reply.header('Content-Disposition', `inline; filename="${ev.fileName || ev.id}"`);
+    const safeName = (ev.fileName || ev.id).replace(/["\r\n\\]/g, '_');
+    const mime = (ev.mimeType || 'application/octet-stream').toLowerCase();
+    const isSafeInline = SAFE_INLINE_MIMES.has(mime);
+    reply.header('X-Content-Type-Options', 'nosniff');
+    reply.header('Content-Type', isSafeInline ? mime : 'application/octet-stream');
+    reply.header('Content-Disposition', `${isSafeInline ? 'inline' : 'attachment'}; filename="${safeName}"`);
     return buf;
   });
 

@@ -53,6 +53,15 @@ export async function getStoredUser(): Promise<{ id: string; name: string; email
 }
 
 export async function clearSession() {
+  const rt = await kvGet(KEY_REFRESH);
+  if (rt) {
+    const base = await getApiUrl();
+    fetch(`${base}/api/v1/auth/logout`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refreshToken: rt }),
+    }).catch(() => undefined);
+  }
   await kvDel(KEY_TOKEN);
   await kvDel(KEY_REFRESH);
   await kvDel(KEY_USER);
@@ -91,9 +100,10 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
         body: JSON.stringify({ refreshToken: rt }),
       });
       if (refRes.ok) {
-        const refData = (await refRes.json()) as { accessToken?: string };
+        const refData = (await refRes.json()) as { accessToken?: string; refreshToken?: string };
         if (refData?.accessToken) {
           await kvSet(KEY_TOKEN, refData.accessToken);
+          if (refData.refreshToken) await kvSet(KEY_REFRESH, refData.refreshToken);
           res = await doRequest(refData.accessToken);
         }
       }

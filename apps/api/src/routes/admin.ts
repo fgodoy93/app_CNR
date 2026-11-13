@@ -2,7 +2,7 @@ import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { hash } from '@node-rs/argon2';
 import { prisma } from '../db';
-import { requirePermission } from '../plugins/auth';
+import { can, requirePermission } from '../plugins/auth';
 import { audit } from '../lib/audit';
 import { badRequest, notFound } from '../lib/errors';
 import { activityTypeSaveSchema } from '@terreno/shared';
@@ -82,7 +82,8 @@ export const adminRoutes: FastifyPluginAsync = async (app) => {
   });
 
   // ---------- Users ----------
-  app.get('/users', async () => {
+  app.get('/users', async (req) => {
+    const canManage = can(req.actor, 'users.manage');
     const users = await prisma.user.findMany({
       include: { role: true, unit: true },
       orderBy: { name: 'asc' },
@@ -90,15 +91,19 @@ export const adminRoutes: FastifyPluginAsync = async (app) => {
     return {
       data: users.map((u) => ({
         id: u.id,
-        email: u.email,
         name: u.name,
-        rut: u.rut,
-        phone: u.phone,
-        position: u.position,
         active: u.active,
-        lastLoginAt: u.lastLoginAt,
         role: { id: u.role.id, key: u.role.key, name: u.role.name },
         unit: u.unit ? { id: u.unit.id, code: u.unit.code, name: u.unit.name } : null,
+        ...(canManage
+          ? {
+              email: u.email,
+              rut: u.rut,
+              phone: u.phone,
+              position: u.position,
+              lastLoginAt: u.lastLoginAt,
+            }
+          : {}),
       })),
     };
   });

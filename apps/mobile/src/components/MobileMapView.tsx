@@ -93,6 +93,12 @@ export function MobileMapView({ activities, geoFeatures, onSelectActivity }: Mob
         .bindTooltip('Mi ubicación', { permanent: true, direction: 'top', offset: [0, -8], className: 'cnr-map-label' });
     }
 
+    function esc(s) {
+      return String(s || '').replace(/[&<>"']/g, function(c) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+      });
+    }
+
     var bounds = [];
     var acts = ${JSON.stringify(actMarkers)};
     acts.forEach(function(a) {
@@ -105,7 +111,7 @@ export function MobileMapView({ activities, geoFeatures, onSelectActivity }: Mob
         weight: 2
       })
         .addTo(map)
-        .bindPopup('<b>' + a.folio + '</b><br/>' + a.title + '<br/><small>' + a.status + '</small>')
+        .bindPopup('<b>' + esc(a.folio) + '</b><br/>' + esc(a.title) + '<br/><small>' + esc(a.status) + '</small>')
         .bindTooltip(a.folio, { permanent: true, direction: 'top', offset: [0, -8], className: 'cnr-map-label' });
     });
 
@@ -120,7 +126,7 @@ export function MobileMapView({ activities, geoFeatures, onSelectActivity }: Mob
         }
       })
         .addTo(map)
-        .bindPopup('<b>' + f.kind + '</b>: ' + f.label)
+        .bindPopup('<b>' + esc(f.kind) + '</b>: ' + esc(f.label))
         .bindTooltip(refTxt, { permanent: true, direction: 'top', offset: [0, -6], className: 'cnr-map-label' });
       try {
         var b = layer.getBounds();

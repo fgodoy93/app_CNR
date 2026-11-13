@@ -84,8 +84,37 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
       throw unauthorized('Refresh token inválido o expirado');
     }
 
+    // Rotate refresh token on each use
+    const nextRawRefresh = randomToken(40);
+    const nextExpiresAt = new Date();
+    nextExpiresAt.setDate(nextExpiresAt.getDate() + 30);
+
+    await prisma.$transaction([
+      prisma.refreshToken.update({ where: { id: stored.id }, data: { revokedAt: new Date() } }),
+      prisma.refreshToken.create({
+        data: {
+          userId: stored.user.id,
+          tokenHash: sha256(nextRawRefresh),
+          device: stored.device,
+          ip: req.ip,
+          expiresAt: nextExpiresAt,
+        },
+      }),
+    ]);
+
     const accessToken = app.jwt.sign({ sub: stored.user.id, kind: 'user' });
-    return reply.send({ accessToken });
+    return reply.send({ accessToken, refreshToken: nextRawRefresh });
+  });
+
+  app.post('/logout', async (req, reply) => {
+    const { refreshToken } = (req.body as { refreshToken?: string } | undefined) ?? {};
+    if (refreshToken) {
+      await prisma.refreshToken.updateMany({
+        where: { tokenHash: sha256(refreshToken), revokedAt: null },
+        data: { revokedAt: new Date() },
+      });
+    }
+    return reply.send({ ok: true });
   });
 
   app.get('/me', { preHandler: [app.authenticate] }, async (req) => {

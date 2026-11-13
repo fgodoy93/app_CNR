@@ -21,6 +21,15 @@ export interface MapFeatureItem {
   evidenceCount?: number;
 }
 
+function escapeHtml(value: unknown): string {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 export function LeafletMap({
   features,
   height = '480px',
@@ -85,12 +94,12 @@ export function LeafletMap({
       const refLabel = (f.label || f.activityFolio || f.code || f.kind).slice(0, 28);
       const popupHtml = `
         <div style="font-family:sans-serif;font-size:12px;min-width:180px">
-          <strong>${f.code}</strong> ${f.label ? `· ${f.label}` : ''}<br/>
-          ${f.activityFolio ? `<span>Folio: <b>${f.activityFolio}</b></span><br/>` : ''}
-          <span>Tipo: ${f.kind}${f.status ? ` · Estado: ${f.status}` : ''}</span><br/>
-          ${f.accuracy != null ? `<span>Precisión GPS: ±${f.accuracy} m</span><br/>` : ''}
-          ${f.evidenceCount != null ? `<span>Evidencias: ${f.evidenceCount}</span><br/>` : ''}
-          ${f.observations ? `<p style="margin:4px 0 0;color:#475569">${f.observations}</p>` : ''}
+          <strong>${escapeHtml(f.code)}</strong> ${f.label ? `· ${escapeHtml(f.label)}` : ''}<br/>
+          ${f.activityFolio ? `<span>Folio: <b>${escapeHtml(f.activityFolio)}</b></span><br/>` : ''}
+          <span>Tipo: ${escapeHtml(f.kind)}${f.status ? ` · Estado: ${escapeHtml(f.status)}` : ''}</span><br/>
+          ${f.accuracy != null ? `<span>Precisión GPS: ±${escapeHtml(f.accuracy)} m</span><br/>` : ''}
+          ${f.evidenceCount != null ? `<span>Evidencias: ${escapeHtml(f.evidenceCount)}</span><br/>` : ''}
+          ${f.observations ? `<p style="margin:4px 0 0;color:#475569">${escapeHtml(f.observations)}</p>` : ''}
         </div>
       `;
 

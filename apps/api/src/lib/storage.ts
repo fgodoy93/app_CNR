@@ -1,5 +1,5 @@
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, join, resolve, sep } from 'node:path';
 import { DeleteObjectCommand, GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { config } from '../config';
 import { decryptBuffer, encryptBuffer } from './crypto';
@@ -16,7 +16,7 @@ class DiskStorage implements Storage {
 
   private path(key: string) {
     const p = resolve(join(this.root, key));
-    if (!p.startsWith(this.root)) throw new Error('Ruta de almacenamiento inválida');
+    if (p !== this.root && !p.startsWith(this.root + sep)) throw new Error('Ruta de almacenamiento inválida');
     return p;
   }
 

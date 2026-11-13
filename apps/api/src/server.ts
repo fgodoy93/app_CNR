@@ -6,7 +6,7 @@ import multipart from '@fastify/multipart';
 import swagger from '@fastify/swagger';
 import swaggerUi from '@fastify/swagger-ui';
 import { config, corsOrigins } from './config';
-import authPlugin from './plugins/auth';
+import authPlugin, { requirePermission } from './plugins/auth';
 import { registry, httpRequests, httpDuration } from './lib/metrics';
 import { authRoutes } from './routes/auth';
 import { activitiesRoutes } from './routes/activities';
@@ -57,17 +57,19 @@ export async function buildApp() {
     },
   });
 
-  // Swagger Documentation
-  await app.register(swagger, {
-    openapi: {
-      info: {
-        title: 'TerrenoCNR API REST & Integración',
-        description: 'Servicio web para la toma de información en terreno, inspecciones y órdenes de trabajo (CNR Chile)',
-        version: '1.0.0',
+  // Swagger Documentation (disabled in production)
+  if (config.NODE_ENV !== 'production') {
+    await app.register(swagger, {
+      openapi: {
+        info: {
+          title: 'TerrenoCNR API REST & Integración',
+          description: 'Servicio web para la toma de información en terreno, inspecciones y órdenes de trabajo (CNR Chile)',
+          version: '1.0.0',
+        },
       },
-    },
-  });
-  await app.register(swaggerUi, { routePrefix: '/docs' });
+    });
+    await app.register(swaggerUi, { routePrefix: '/docs' });
+  }
 
   app.setErrorHandler((err, _req, reply) => {
     if (err instanceof AppError) {
@@ -110,10 +112,14 @@ export async function buildApp() {
     };
   });
 
-  app.get('/metrics', async (_req, reply) => {
-    reply.header('Content-Type', registry.contentType);
-    return registry.metrics();
-  });
+  app.get(
+    '/metrics',
+    { preHandler: config.NODE_ENV === 'production' ? [app.authenticate, requirePermission('audit.view')] : [] },
+    async (_req, reply) => {
+      reply.header('Content-Type', registry.contentType);
+      return registry.metrics();
+    },
+  );
 
   // Register Auth
   await app.register(authPlugin);
