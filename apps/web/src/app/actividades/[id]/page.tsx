@@ -25,7 +25,28 @@ function ActividadDetailInner() {
   const [lngInput, setLngInput] = useState('');
   const [searchZone, setSearchZone] = useState('');
   const [searchingZone, setSearchingZone] = useState(false);
+  const [zoneSuggestions, setZoneSuggestions] = useState<{ display_name: string; lat: string; lon: string }[]>([]);
   const [focusCenter, setFocusCenter] = useState<{ lat: number; lng: number; zoom?: number } | null>(null);
+
+  useEffect(() => {
+    const q = searchZone.trim();
+    if (q.length < 3) {
+      setZoneSuggestions([]);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(
+          `https://nominatim.openstreetmap.org/search?format=json&countrycodes=cl&limit=5&q=${encodeURIComponent(q)}`,
+        );
+        const data = (await res.json()) as { display_name: string; lat: string; lon: string }[];
+        setZoneSuggestions(Array.isArray(data) ? data : []);
+      } catch {
+        setZoneSuggestions([]);
+      }
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [searchZone]);
 
   const load = () => {
     api
@@ -397,22 +418,42 @@ function ActividadDetailInner() {
               </div>
             </div>
 
-            <div className="flex gap-2">
-              <input
-                value={searchZone}
-                onChange={(e) => setSearchZone(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && searchAddressOnWebMap()}
-                placeholder="Buscar dirección, comuna o zona (ej. Talca, Rancagua)..."
-                className="flex-1 px-3 py-1.5 border border-[#d8e3df] rounded-lg text-xs bg-white"
-              />
-              <button
-                type="button"
-                onClick={searchAddressOnWebMap}
-                disabled={searchingZone}
-                className="px-3 py-1.5 bg-[#0b3b60] hover:bg-[#0f4c81] text-white rounded-lg text-xs font-semibold"
-              >
-                {searchingZone ? 'Buscando...' : 'Ir a zona'}
-              </button>
+            <div className="relative">
+              <div className="flex gap-2">
+                <input
+                  value={searchZone}
+                  onChange={(e) => setSearchZone(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && searchAddressOnWebMap()}
+                  placeholder="Buscar dirección, comuna o zona (ej. Talca, Rancagua)..."
+                  className="flex-1 px-3 py-1.5 border border-[#d8e3df] rounded-lg text-xs bg-white"
+                />
+                <button
+                  type="button"
+                  onClick={searchAddressOnWebMap}
+                  disabled={searchingZone}
+                  className="px-3 py-1.5 bg-[#0b3b60] hover:bg-[#0f4c81] text-white rounded-lg text-xs font-semibold"
+                >
+                  {searchingZone ? 'Buscando...' : 'Ir a zona'}
+                </button>
+              </div>
+              {zoneSuggestions.length > 0 && (
+                <div className="absolute left-0 right-0 mt-1 bg-white border border-[#d8e3df] rounded-lg shadow-lg z-30 max-h-44 overflow-y-auto">
+                  {zoneSuggestions.map((s, idx) => (
+                    <button
+                      key={`${s.lat}-${s.lon}-${idx}`}
+                      type="button"
+                      onClick={() => {
+                        setFocusCenter({ lat: Number(s.lat), lng: Number(s.lon), zoom: 15 });
+                        setSearchZone(s.display_name.split(',')[0] ?? s.display_name);
+                        setZoneSuggestions([]);
+                      }}
+                      className="w-full text-left px-3 py-2 text-xs text-slate-700 hover:bg-emerald-50 border-b last:border-b-0 border-slate-100 truncate"
+                    >
+                      📍 {s.display_name}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             <input

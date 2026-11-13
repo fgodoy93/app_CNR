@@ -33,6 +33,7 @@ export function GeoCaptureModal({
   const [userPos, setUserPos] = useState<{ lat: number; lng: number } | null>(null);
   const [searchZone, setSearchZone] = useState('');
   const [searching, setSearching] = useState(false);
+  const [suggestions, setSuggestions] = useState<{ display_name: string; lat: string; lon: string }[]>([]);
   const [focusCoords, setFocusCoords] = useState<{ lat: number; lng: number; zoom?: number } | null>(null);
 
   const locateDevice = async () => {
@@ -53,6 +54,27 @@ export function GeoCaptureModal({
       void locateDevice();
     }
   }, [visible]);
+
+  useEffect(() => {
+    const q = searchZone.trim();
+    if (q.length < 3) {
+      setSuggestions([]);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(
+          `https://nominatim.openstreetmap.org/search?format=json&countrycodes=cl&limit=5&q=${encodeURIComponent(q)}`,
+          { headers: { 'User-Agent': 'TerrenoCNR-App/1.0' } },
+        );
+        const data = (await res.json()) as { display_name: string; lat: string; lon: string }[];
+        setSuggestions(Array.isArray(data) ? data : []);
+      } catch {
+        setSuggestions([]);
+      }
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [searchZone]);
 
   const searchAddress = async () => {
     if (!searchZone.trim()) return;
@@ -182,6 +204,26 @@ export function GeoCaptureModal({
               <Text style={{ fontSize: 12, fontWeight: '700', color: COLORS.green }}>🎯</Text>
             </TouchableOpacity>
           </View>
+
+          {suggestions.length > 0 && (
+            <View style={{ backgroundColor: '#f8fbfa', borderWidth: 1, borderColor: COLORS.border, borderRadius: 8, maxHeight: 130 }}>
+              {suggestions.map((s, idx) => (
+                <TouchableOpacity
+                  key={`${s.lat}-${s.lon}-${idx}`}
+                  onPress={() => {
+                    setFocusCoords({ lat: Number(s.lat), lng: Number(s.lon), zoom: 15 });
+                    setSearchZone(s.display_name.split(',')[0] ?? s.display_name);
+                    setSuggestions([]);
+                  }}
+                  style={{ paddingHorizontal: 10, paddingVertical: 7, borderBottomWidth: idx < suggestions.length - 1 ? 1 : 0, borderBottomColor: COLORS.border }}
+                >
+                  <Text style={{ fontSize: 11, color: COLORS.text }} numberOfLines={1}>
+                    📍 {s.display_name}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
 
           <MiniLeafletMap
             draftPoints={points}

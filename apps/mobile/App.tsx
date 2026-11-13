@@ -17,6 +17,7 @@ import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-cont
 import { StatusBar } from 'expo-status-bar';
 import * as Crypto from 'expo-crypto';
 import * as Network from 'expo-network';
+import * as Location from 'expo-location';
 import {
   DEFAULT_WORKFLOW,
   availableTransitions,
@@ -77,7 +78,22 @@ function AppContent() {
   const [networkType, setNetworkType] = useState('UNKNOWN');
   const [autoSync, setAutoSync] = useState(true);
   const [lastAutoSyncAt, setLastAutoSyncAt] = useState<string | null>(null);
+  const [devicePos, setDevicePos] = useState<{ lat: number; lng: number } | null>(null);
+  const [detailFocus, setDetailFocus] = useState<{ lat: number; lng: number; zoom?: number } | null>(null);
   const syncingRef = useRef(false);
+
+  const locateDeviceForDetail = async () => {
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') return;
+      const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      const coords = { lat: pos.coords.latitude, lng: pos.coords.longitude, zoom: 16 };
+      setDevicePos({ lat: coords.lat, lng: coords.lng });
+      setDetailFocus(coords);
+    } catch {
+      // ignore if GPS unavailable
+    }
+  };
 
   const refreshLocal = async () => {
     const db = await getDb();
@@ -208,6 +224,8 @@ function AppContent() {
 
     setActGeo(await db.getAllAsync<any>(`SELECT * FROM geo_features WHERE activityId = ? ORDER BY capturedAt DESC`, [act.id]));
     setActEvidences(await db.getAllAsync<any>(`SELECT * FROM evidences WHERE activityId = ? ORDER BY capturedAt DESC`, [act.id]));
+    setDetailFocus(null);
+    void locateDeviceForDetail();
   };
 
   const saveOfflineProgress = async () => {
@@ -511,16 +529,25 @@ function AppContent() {
 
           {/* GeoFeatures */}
           <View style={styles.card}>
-            <View style={[styles.rowBetween, { marginBottom: 10 }]}>
-              <Text style={styles.sectionHeader}>Puntos y Geometrías GPS ({actGeo.length})</Text>
+            <View style={[styles.rowBetween, { marginBottom: 10, gap: 6 }]}>
+              <Text style={[styles.sectionHeader, { marginBottom: 0, flex: 1 }]}>Puntos y Geometrías GPS ({actGeo.length})</Text>
+              <TouchableOpacity
+                onPress={locateDeviceForDetail}
+                style={[styles.smallPriBtn, { backgroundColor: COLORS.water, paddingHorizontal: 10 }]}
+              >
+                <Text style={styles.smallPriTxt}>🎯 Mi ubicación</Text>
+              </TouchableOpacity>
               <TouchableOpacity onPress={() => setShowGeoModal(true)} style={styles.smallPriBtn}>
-                <Text style={styles.smallPriTxt}>+ Capturar GPS</Text>
+                <Text style={styles.smallPriTxt}>+ Capturar</Text>
               </TouchableOpacity>
             </View>
             <MiniLeafletMap
               geoFeatures={actGeo}
               centerLat={selected.lat}
               centerLng={selected.lng}
+              userLat={devicePos?.lat ?? null}
+              userLng={devicePos?.lng ?? null}
+              focusCoords={detailFocus}
               height={210}
             />
             {actGeo.map((g) => {
