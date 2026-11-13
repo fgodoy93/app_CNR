@@ -114,17 +114,25 @@ export async function syncAll(): Promise<SyncSummary> {
     }
   }
 
-  // 3. Pull latest activities, types & form versions
+  // 3. Pull latest activities, types, workflows & form versions
   const pull = await apiFetch<{
     activities: any[];
     activityTypes: any[];
     formVersions: any[];
+    workflows: any[];
   }>('/api/v1/sync/pull');
 
   for (const t of pull.activityTypes) {
     await db.runAsync(
-      `INSERT OR REPLACE INTO activity_types (id, key, name, prefix, formTemplateId) VALUES (?, ?, ?, ?, ?)`,
-      [t.id, t.key, t.name, t.prefix, t.formTemplateId],
+      `INSERT OR REPLACE INTO activity_types (id, key, name, prefix, formTemplateId, workflowId) VALUES (?, ?, ?, ?, ?, ?)`,
+      [t.id, t.key, t.name, t.prefix, t.formTemplateId, t.workflowId ?? null],
+    );
+  }
+
+  for (const wf of pull.workflows ?? []) {
+    await db.runAsync(
+      `INSERT OR REPLACE INTO workflows (id, name, definition) VALUES (?, ?, ?)`,
+      [wf.id, wf.name, JSON.stringify(wf.definition)],
     );
   }
 

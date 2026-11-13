@@ -175,6 +175,50 @@ export function DynamicFormMobile({
                   );
                 })}
               </View>
+            ) : f.type === 'multiselect' ? (
+              <View style={styles.optionsWrap}>
+                {(f.options ?? []).map((o) => {
+                  const arr = Array.isArray(val) ? (val as string[]) : [];
+                  const active = arr.includes(o.value);
+                  return (
+                    <TouchableOpacity
+                      key={o.value}
+                      disabled={disabled}
+                      onPress={() => setVal(f.key, active ? arr.filter((x) => x !== o.value) : [...arr, o.value])}
+                      style={[styles.optBtn, active && styles.optBtnActive]}
+                    >
+                      <Text style={[styles.optTxt, active && styles.optTxtActive]}>
+                        {active ? '✓ ' : ''}{o.label}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            ) : f.type === 'date' || f.type === 'datetime' || f.type === 'time' ? (
+              <View style={styles.row}>
+                <TextInput
+                  style={[styles.input, { flex: 1 }]}
+                  value={String(val ?? '')}
+                  editable={!disabled}
+                  onChangeText={(t) => setVal(f.key, t)}
+                  placeholder={f.type === 'time' ? 'HH:MM' : 'YYYY-MM-DD'}
+                />
+                <TouchableOpacity
+                  onPress={() => {
+                    const now = new Date();
+                    const v =
+                      f.type === 'date'
+                        ? now.toISOString().slice(0, 10)
+                        : f.type === 'time'
+                          ? now.toTimeString().slice(0, 5)
+                          : now.toISOString();
+                    setVal(f.key, v);
+                  }}
+                  style={styles.actionBtn}
+                >
+                  <Text style={styles.actionTxt}>Ahora</Text>
+                </TouchableOpacity>
+              </View>
             ) : f.type === 'boolean' ? (
               <Switch value={Boolean(val)} disabled={disabled} onValueChange={(v) => setVal(f.key, v)} />
             ) : f.type === 'qr' || f.type === 'barcode' ? (

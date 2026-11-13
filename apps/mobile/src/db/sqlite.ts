@@ -42,7 +42,13 @@ export async function getDb(): Promise<SQLite.SQLiteDatabase> {
           key TEXT NOT NULL,
           name TEXT NOT NULL,
           prefix TEXT NOT NULL,
-          formTemplateId TEXT
+          formTemplateId TEXT,
+          workflowId TEXT
+        );
+        CREATE TABLE IF NOT EXISTS workflows (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          definition TEXT NOT NULL
         );
         CREATE TABLE IF NOT EXISTS geo_features (
           id TEXT PRIMARY KEY,
@@ -84,6 +90,11 @@ export async function getDb(): Promise<SQLite.SQLiteDatabase> {
           error TEXT
         );
       `);
+      try {
+        await db.execAsync(`ALTER TABLE activity_types ADD COLUMN workflowId TEXT;`);
+      } catch {
+        // column already exists
+      }
       return db;
     })();
   }

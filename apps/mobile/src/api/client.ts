@@ -40,6 +40,16 @@ export async function setSession(token: string, user: unknown) {
   await kvSet(KEY_USER, JSON.stringify(user));
 }
 
+export async function getStoredUser(): Promise<{ id: string; name: string; email: string; role: string; permissions: string[] } | null> {
+  const raw = await kvGet(KEY_USER);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
 export async function clearSession() {
   await kvDel(KEY_TOKEN);
   await kvDel(KEY_USER);

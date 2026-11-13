@@ -10,36 +10,63 @@ import {
   StyleSheet,
   Alert,
   ActivityIndicator,
+  Linking,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import * as Location from 'expo-location';
 import * as Crypto from 'expo-crypto';
-import type { FormDefinition } from '@terreno/shared';
+import {
+  DEFAULT_WORKFLOW,
+  availableTransitions,
+  type FormDefinition,
+  type WorkflowDefinition,
+  type WorkflowTransition,
+} from '@terreno/shared';
 import { getDb } from './src/db/sqlite';
-import { apiFetch, clearSession, getApiUrl, getToken, setApiUrl, setSession } from './src/api/client';
+import { apiFetch, clearSession, getApiUrl, getStoredUser, getToken, setApiUrl, setSession } from './src/api/client';
 import { enqueueMutation, syncAll } from './src/sync/syncEngine';
 import { DynamicFormMobile, type CapturedEvidence } from './src/components/DynamicFormMobile';
+import { GeoCaptureModal, type GeoKindChoice } from './src/components/GeoCaptureModal';
+import { NewActivityModal } from './src/components/NewActivityModal';
+
+type Tab = 'activities' | 'map' | 'sync';
 
 export default function App() {
   const [ready, setReady] = useState(false);
   const [loggedIn, setLoggedIn] = useState(false);
-  const [apiUrlInput, setApiUrlInput] = useState('http://10.0.2.2:4000');
+  const [user, setUser] = useState<{ id: string; name: string; email: string; role: string; permissions: string[] } | null>(null);
+  const [apiUrlInput, setApiUrlInput] = useState('http://192.168.1.158:4000');
   const [email, setEmail] = useState('terreno@cnr.gob.cl');
   const [password, setPassword] = useState('Cnr2026!Demo');
+
+  const [tab, setTab] = useState<Tab>('activities');
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
   const [activities, setActivities] = useState<any[]>([]);
-  const [pendingCount, setPendingCount] = useState(0);
+  const [types, setTypes] = useState<any[]>([]);
+  const [allGeo, setAllGeo] = useState<any[]>([]);
+  const [queueItems, setQueueItems] = useState<any[]>([]);
+  const [pendingEvCount, setPendingEvCount] = useState(0);
+
   const [selected, setSelected] = useState<any | null>(null);
   const [formDef, setFormDef] = useState<FormDefinition | null>(null);
   const [formData, setFormData] = useState<Record<string, unknown>>({});
+  const [transitions, setTransitions] = useState<WorkflowTransition[]>([]);
+  const [transitionComment, setTransitionComment] = useState('');
+  const [actGeo, setActGeo] = useState<any[]>([]);
+  const [actEvidences, setActEvidences] = useState<any[]>([]);
+
+  const [showGeoModal, setShowGeoModal] = useState(false);
+  const [showNewModal, setShowNewModal] = useState(false);
   const [syncing, setSyncing] = useState(false);
 
   const refreshLocal = async () => {
     const db = await getDb();
-    const rows = await db.getAllAsync<any>(`SELECT * FROM activities ORDER BY updatedAt DESC`);
-    setActivities(rows);
-    const q = await db.getFirstAsync<{ cnt: number }>(`SELECT COUNT(*) as cnt FROM sync_queue WHERE status = 'PENDING'`);
+    setActivities(await db.getAllAsync<any>(`SELECT * FROM activities ORDER BY updatedAt DESC`));
+    setTypes(await db.getAllAsync<any>(`SELECT * FROM activity_types ORDER BY name ASC`));
+    setAllGeo(await db.getAllAsync<any>(`SELECT * FROM geo_features ORDER BY capturedAt DESC`));
+    setQueueItems(await db.getAllAsync<any>(`SELECT * FROM sync_queue ORDER BY clientTime DESC`));
     const ev = await db.getFirstAsync<{ cnt: number }>(`SELECT COUNT(*) as cnt FROM evidences WHERE synced = 0`);
-    setPendingCount((q?.cnt ?? 0) + (ev?.cnt ?? 0));
+    setPendingEvCount(ev?.cnt ?? 0);
   };
 
   useEffect(() => {
@@ -48,6 +75,7 @@ export default function App() {
       const tok = await getToken();
       if (tok) {
         setLoggedIn(true);
+        setUser(await getStoredUser());
         await refreshLocal();
       }
       setReady(true);
@@ -57,11 +85,12 @@ export default function App() {
   const handleLogin = async () => {
     try {
       await setApiUrl(apiUrlInput);
-      const res = await apiFetch<{ accessToken: string; user: unknown }>('/api/v1/auth/login', {
+      const res = await apiFetch<{ accessToken: string; user: any }>('/api/v1/auth/login', {
         method: 'POST',
         body: JSON.stringify({ email, password, device: 'mobile-app' }),
       });
       await setSession(res.accessToken, res.user);
+      setUser(res.user);
       setLoggedIn(true);
       await handleSync();
     } catch (e: any) {
@@ -90,31 +119,62 @@ export default function App() {
     const db = await getDb();
     setSelected(act);
     setFormData(JSON.parse(act.data || '{}'));
+
     if (act.formVersionId) {
-      const fv = await db.getFirstAsync<{ definition: string }>(`SELECT definition FROM form_versions WHERE id = ?`, [
-        act.formVersionId,
-      ]);
+      const fv = await db.getFirstAsync<{ definition: string }>(`SELECT definition FROM form_versions WHERE id = ?`, [act.formVersionId]);
       setFormDef(fv ? JSON.parse(fv.definition) : null);
     } else {
       setFormDef(null);
     }
+
+    // Load workflow transitions available for this user
+    let wfDef: WorkflowDefinition = DEFAULT_WORKFLOW;
+    const tRow = await db.getFirstAsync<{ workflowId: string | null }>(`SELECT workflowId FROM activity_types WHERE id = ?`, [act.typeId]);
+    if (tRow?.workflowId) {
+      const wfRow = await db.getFirstAsync<{ definition: string }>(`SELECT definition FROM workflows WHERE id = ?`, [tRow.workflowId]);
+      if (wfRow) wfDef = JSON.parse(wfRow.definition);
+    }
+    const curUser = user ?? (await getStoredUser());
+    setTransitions(
+      availableTransitions(
+        wfDef,
+        { status: act.status, assigneeId: curUser?.id ?? null },
+        { userId: curUser?.id ?? null, roleKey: curUser?.role ?? 'terreno', permissions: curUser?.permissions ?? [] },
+      ),
+    );
+
+    setActGeo(await db.getAllAsync<any>(`SELECT * FROM geo_features WHERE activityId = ? ORDER BY capturedAt DESC`, [act.id]));
+    setActEvidences(await db.getAllAsync<any>(`SELECT * FROM evidences WHERE activityId = ? ORDER BY capturedAt DESC`, [act.id]));
   };
 
   const saveOfflineProgress = async () => {
     if (!selected) return;
     const db = await getDb();
     const now = new Date().toISOString();
-    await db.runAsync(`UPDATE activities SET data = ?, updatedAt = ? WHERE id = ?`, [
-      JSON.stringify(formData),
-      now,
-      selected.id,
-    ]);
-    await enqueueMutation('activity', 'upsert', selected.id, {
-      data: formData,
-      baseVersion: selected.version,
-    });
+    await db.runAsync(`UPDATE activities SET data = ?, updatedAt = ? WHERE id = ?`, [JSON.stringify(formData), now, selected.id]);
+    await enqueueMutation('activity', 'upsert', selected.id, { data: formData, baseVersion: selected.version });
     await refreshLocal();
-    Alert.alert('Guardado Offline', 'Cambios guardados en SQLite local y encolados para sincronizar.');
+    Alert.alert('Guardado Offline', 'Formulario guardado en SQLite local y encolado para sincronizar.');
+  };
+
+  const executeWorkflowTransition = async (tr: WorkflowTransition) => {
+    if (!selected) return;
+    if (tr.requireComment && !transitionComment.trim()) {
+      return Alert.alert('Comentario requerido', 'Ingrese una observación para ejecutar esta transición.');
+    }
+    const db = await getDb();
+    const now = new Date().toISOString();
+    await db.runAsync(`UPDATE activities SET status = ?, updatedAt = ? WHERE id = ?`, [tr.to, now, selected.id]);
+    await enqueueMutation('transition', 'execute', selected.id, {
+      activityId: selected.id,
+      transition: tr.key,
+      comment: transitionComment.trim() || undefined,
+    });
+    setTransitionComment('');
+    const updated = { ...selected, status: tr.to, updatedAt: now };
+    await refreshLocal();
+    await openActivity(updated);
+    Alert.alert('Estado Actualizado', `La actividad pasó a ${tr.to} (encolado para sincronizar).`);
   };
 
   const handleCaptureEvidence = async (ev: CapturedEvidence) => {
@@ -140,38 +200,76 @@ export default function App() {
       ],
     );
     await refreshLocal();
+    setActEvidences(await db.getAllAsync<any>(`SELECT * FROM evidences WHERE activityId = ? ORDER BY capturedAt DESC`, [selected.id]));
   };
 
-  const handleCaptureGeo = async (
-    kind: 'POINT' | 'LINE' | 'POLYGON' | 'TRACK',
-    coords: [number, number],
-    accuracy?: number | null,
-  ) => {
+  const saveGeoFeature = async (input: {
+    kind: GeoKindChoice;
+    geometry: any;
+    label: string;
+    status: string;
+    observations: string;
+    accuracy: number | null;
+  }) => {
     if (!selected) return;
     const db = await getDb();
     const id = Crypto.randomUUID();
     const now = new Date().toISOString();
-    const geometry = { type: 'Point', coordinates: coords };
     await db.runAsync(
-      `INSERT INTO geo_features (id, activityId, kind, geometry, accuracy, capturedAt, synced) VALUES (?, ?, ?, ?, ?, ?, 0)`,
-      [id, selected.id, kind, JSON.stringify(geometry), accuracy ?? null, now],
+      `INSERT INTO geo_features (id, activityId, kind, geometry, label, observations, accuracy, capturedAt, synced) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)`,
+      [id, selected.id, input.kind, JSON.stringify(input.geometry), input.label, input.observations, input.accuracy, now],
     );
     await enqueueMutation('geoFeature', 'upsert', id, {
       activityId: selected.id,
-      kind: 'POINT',
-      geometry,
-      accuracy: accuracy ?? undefined,
+      kind: input.kind,
+      geometry: input.geometry,
+      label: input.label,
+      status: input.status,
+      observations: input.observations,
+      accuracy: input.accuracy ?? undefined,
       capturedAt: now,
     });
+    setShowGeoModal(false);
     await refreshLocal();
+    setActGeo(await db.getAllAsync<any>(`SELECT * FROM geo_features WHERE activityId = ? ORDER BY capturedAt DESC`, [selected.id]));
+    Alert.alert('Geometría Guardada', `${input.kind} "${input.label}" guardado en SQLite.`);
   };
 
-  const captureQuickGps = async () => {
-    const { status } = await Location.requestForegroundPermissionsAsync();
-    if (status !== 'granted') return Alert.alert('Permiso GPS requerido');
-    const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
-    await handleCaptureGeo('POINT', [pos.coords.longitude, pos.coords.latitude], pos.coords.accuracy);
-    Alert.alert('Punto GPS registrado offline', `Precisión: ±${Math.round(pos.coords.accuracy ?? 0)} m`);
+  const handleCreateActivity = async (input: {
+    typeId: string;
+    title: string;
+    description: string;
+    priority: 'BAJA' | 'MEDIA' | 'ALTA' | 'CRITICA';
+    address: string;
+  }) => {
+    const db = await getDb();
+    const id = Crypto.randomUUID();
+    const now = new Date().toISOString();
+    const t = types.find((x) => x.id === input.typeId);
+    const folio = `LOCAL-${Math.floor(1000 + Math.random() * 9000)}`;
+    let formVersionId: string | null = null;
+    if (t?.formTemplateId) {
+      const fv = await db.getFirstAsync<{ id: string }>(`SELECT id FROM form_versions WHERE templateId = ? ORDER BY version DESC LIMIT 1`, [
+        t.formTemplateId,
+      ]);
+      formVersionId = fv?.id ?? null;
+    }
+
+    await db.runAsync(
+      `INSERT INTO activities (id, folio, typeId, typeName, title, description, priority, status, progress, formVersionId, data, address, version, updatedAt)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 'PENDIENTE', 0, ?, '{}', ?, 1, ?)`,
+      [id, folio, input.typeId, t?.name ?? 'Actividad', input.title, input.description, input.priority, formVersionId, input.address, now],
+    );
+    await enqueueMutation('activity', 'upsert', id, {
+      typeId: input.typeId,
+      title: input.title,
+      description: input.description || null,
+      priority: input.priority,
+      address: input.address || null,
+    });
+    setShowNewModal(false);
+    await refreshLocal();
+    Alert.alert('Actividad Creada Offline', `Folio temporal ${folio}. Presione Sincronizar cuando tenga conexión.`);
   };
 
   if (!ready) {
@@ -188,7 +286,7 @@ export default function App() {
         <StatusBar style="dark" />
         <View style={styles.loginCard}>
           <Text style={styles.brand}>TerrenoCNR Móvil</Text>
-          <Text style={styles.sub}>Comisión Nacional de Riego · Modo Offline</Text>
+          <Text style={styles.sub}>Comisión Nacional de Riego · Android / iOS Offline</Text>
           <TextInput style={styles.input} value={apiUrlInput} onChangeText={setApiUrlInput} placeholder="URL API" autoCapitalize="none" />
           <TextInput style={styles.input} value={email} onChangeText={setEmail} placeholder="Correo" autoCapitalize="none" />
           <TextInput style={styles.input} value={password} onChangeText={setPassword} placeholder="Contraseña" secureTextEntry />
@@ -200,6 +298,7 @@ export default function App() {
     );
   }
 
+  // Activity Detail Screen
   if (selected) {
     return (
       <SafeAreaView style={styles.container}>
@@ -213,71 +312,253 @@ export default function App() {
             <Text style={styles.headerLink}>Guardar</Text>
           </TouchableOpacity>
         </View>
-        <ScrollView contentContainerStyle={{ padding: 16, gap: 16 }}>
+        <ScrollView contentContainerStyle={{ padding: 14, gap: 14 }}>
           <View style={styles.card}>
+            <View style={styles.rowBetween}>
+              <Text style={styles.badge}>{selected.status}</Text>
+              <Text style={styles.meta}>Prioridad: {selected.priority} · {selected.progress}%</Text>
+            </View>
             <Text style={styles.cardTitle}>{selected.title}</Text>
-            <Text style={styles.meta}>Estado: {selected.status} · Prioridad: {selected.priority}</Text>
-            <TouchableOpacity onPress={captureQuickGps} style={[styles.secondaryBtn, { marginTop: 10 }]}>
-              <Text style={styles.secondaryTxt}>📍 Registrar Punto GPS Rápido</Text>
-            </TouchableOpacity>
+            {selected.address ? <Text style={styles.meta}>📍 {selected.address}</Text> : null}
           </View>
-          {formDef ? (
+
+          {/* Workflow Transitions */}
+          {transitions.length > 0 && (
             <View style={styles.card}>
+              <Text style={styles.sectionHeader}>Flujo de Trabajo y Aprobación</Text>
+              <TextInput
+                style={[styles.input, { marginBottom: 8 }]}
+                value={transitionComment}
+                onChangeText={setTransitionComment}
+                placeholder="Comentario / observación para cambio de estado..."
+              />
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                {transitions.map((tr) => (
+                  <TouchableOpacity key={tr.key} onPress={() => executeWorkflowTransition(tr)} style={styles.wfBtn}>
+                    <Text style={styles.wfBtnTxt}>{tr.label}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          )}
+
+          {/* GeoFeatures */}
+          <View style={styles.card}>
+            <View style={styles.rowBetween}>
+              <Text style={styles.sectionHeader}>Puntos y Geometrías GPS ({actGeo.length})</Text>
+              <TouchableOpacity onPress={() => setShowGeoModal(true)} style={styles.smallPriBtn}>
+                <Text style={styles.smallPriTxt}>+ Capturar GPS</Text>
+              </TouchableOpacity>
+            </View>
+            {actGeo.map((g) => {
+              const geom = JSON.parse(g.geometry);
+              const coordPreview =
+                geom.type === 'Point'
+                  ? `${geom.coordinates[1].toFixed(5)}, ${geom.coordinates[0].toFixed(5)}`
+                  : `${geom.type} (${geom.type === 'Polygon' ? geom.coordinates[0].length : geom.coordinates.length} vértices)`;
+              return (
+                <View key={g.id} style={styles.subItem}>
+                  <Text style={{ fontWeight: '700', fontSize: 13 }}>{g.kind} · {g.label || 'Sin nombre'}</Text>
+                  <Text style={styles.meta}>{coordPreview} {g.accuracy ? `· ±${Math.round(g.accuracy)} m` : ''}</Text>
+                </View>
+              );
+            })}
+          </View>
+
+          {/* Dynamic Form */}
+          {formDef && (
+            <View style={styles.card}>
+              <Text style={styles.sectionHeader}>Formulario Digital en Terreno</Text>
               <DynamicFormMobile
                 definition={formDef}
                 values={formData}
                 onChange={setFormData}
                 onCaptureEvidence={handleCaptureEvidence}
-                onCaptureGeo={handleCaptureGeo}
+                onCaptureGeo={(kind, coords, accuracy) =>
+                  saveGeoFeature({
+                    kind,
+                    geometry: { type: 'Point', coordinates: coords },
+                    label: `Punto ${kind}`,
+                    status: 'Conforme',
+                    observations: '',
+                    accuracy: accuracy ?? null,
+                  })
+                }
               />
             </View>
-          ) : (
-            <Text style={styles.meta}>Sin formulario asociado.</Text>
           )}
+
+          {/* Evidences list */}
+          <View style={styles.card}>
+            <Text style={styles.sectionHeader}>Evidencias Capturadas ({actEvidences.length})</Text>
+            {actEvidences.length === 0 ? (
+              <Text style={styles.meta}>Sin evidencias aún.</Text>
+            ) : (
+              actEvidences.map((ev) => (
+                <View key={ev.id} style={styles.subItem}>
+                  <Text style={{ fontWeight: '600', fontSize: 12 }}>
+                    {ev.kind} · {ev.fileName || ev.source} {ev.synced ? '✓ Sincronizada' : '⏳ Pendiente'}
+                  </Text>
+                  <Text style={styles.meta}>{new Date(ev.capturedAt).toLocaleString('es-CL')}</Text>
+                </View>
+              ))
+            )}
+          </View>
+
           <TouchableOpacity onPress={saveOfflineProgress} style={styles.primaryBtn}>
-            <Text style={styles.primaryTxt}>Guardar en Dispositivo (Offline)</Text>
+            <Text style={styles.primaryTxt}>Guardar Avance en Dispositivo</Text>
           </TouchableOpacity>
         </ScrollView>
+
+        <GeoCaptureModal visible={showGeoModal} onSave={saveGeoFeature} onClose={() => setShowGeoModal(false)} />
       </SafeAreaView>
     );
   }
+
+  const pendingTotal = queueItems.filter((q) => q.status === 'PENDING').length + pendingEvCount;
+  const filteredActivities = activities.filter((a) => {
+    const matchText =
+      !search.trim() ||
+      a.folio.toLowerCase().includes(search.toLowerCase()) ||
+      a.title.toLowerCase().includes(search.toLowerCase());
+    const matchStatus = !statusFilter || a.status === statusFilter;
+    return matchText && matchStatus;
+  });
 
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar style="light" />
       <View style={styles.header}>
         <Text style={styles.headerTitle}>TerrenoCNR</Text>
-        <View style={{ flexDirection: 'row', gap: 12 }}>
-          <TouchableOpacity onPress={handleSync} disabled={syncing}>
-            <Text style={styles.headerLink}>{syncing ? 'Sincronizando...' : `Sincronizar (${pendingCount})`}</Text>
-          </TouchableOpacity>
+        <TouchableOpacity onPress={handleSync} disabled={syncing}>
+          <Text style={styles.headerLink}>{syncing ? 'Sincronizando...' : `⟳ Sync (${pendingTotal})`}</Text>
+        </TouchableOpacity>
+      </View>
+
+      {tab === 'activities' && (
+        <View style={{ flex: 1 }}>
+          <View style={styles.toolbar}>
+            <TextInput
+              style={[styles.input, { flex: 1, paddingVertical: 8 }]}
+              value={search}
+              onChangeText={setSearch}
+              placeholder="Buscar folio o título..."
+            />
+            <TouchableOpacity onPress={() => setShowNewModal(true)} style={styles.smallPriBtn}>
+              <Text style={styles.smallPriTxt}>+ Nueva OT</Text>
+            </TouchableOpacity>
+          </View>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ maxHeight: 42, paddingHorizontal: 12 }}>
+            {['', 'ASIGNADA', 'EN_EJECUCION', 'EN_REVISION', 'CERRADA'].map((st) => (
+              <TouchableOpacity
+                key={st || 'ALL'}
+                onPress={() => setStatusFilter(st)}
+                style={[styles.filterChip, statusFilter === st && styles.filterChipActive]}
+              >
+                <Text style={[styles.filterTxt, statusFilter === st && { color: '#fff' }]}>{st || 'Todas'}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+
+          <FlatList
+            data={filteredActivities}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={{ padding: 14, gap: 10 }}
+            ListEmptyComponent={<Text style={styles.empty}>No hay actividades. Presione Sync.</Text>}
+            renderItem={({ item }) => (
+              <TouchableOpacity onPress={() => openActivity(item)} style={styles.card}>
+                <View style={styles.rowBetween}>
+                  <Text style={styles.folio}>{item.folio}</Text>
+                  <Text style={styles.badge}>{item.status}</Text>
+                </View>
+                <Text style={styles.cardTitle}>{item.title}</Text>
+                <Text style={styles.meta}>
+                  {item.typeName} · {item.priority} · {item.progress}%
+                </Text>
+                {item.address ? <Text style={styles.meta}>📍 {item.address}</Text> : null}
+              </TouchableOpacity>
+            )}
+          />
+        </View>
+      )}
+
+      {tab === 'map' && (
+        <FlatList
+          data={allGeo}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={{ padding: 14, gap: 10 }}
+          ListEmptyComponent={<Text style={styles.empty}>Sin puntos o geometrías GPS capturadas localmente.</Text>}
+          renderItem={({ item }) => {
+            const geom = JSON.parse(item.geometry);
+            const firstPt =
+              geom.type === 'Point'
+                ? geom.coordinates
+                : geom.type === 'Polygon'
+                  ? geom.coordinates[0][0]
+                  : geom.coordinates[0];
+            return (
+              <View style={styles.card}>
+                <View style={styles.rowBetween}>
+                  <Text style={styles.folio}>{item.kind} · {item.label}</Text>
+                  <Text style={styles.meta}>{item.synced ? '✓ Sync' : '⏳ Local'}</Text>
+                </View>
+                <Text style={styles.meta}>
+                  Lat: {firstPt[1].toFixed(5)} · Lng: {firstPt[0].toFixed(5)} {item.accuracy ? `· ±${Math.round(item.accuracy)} m` : ''}
+                </Text>
+                {item.observations ? <Text style={styles.meta}>{item.observations}</Text> : null}
+                <TouchableOpacity
+                  onPress={() => Linking.openURL(`https://www.openstreetmap.org/?mlat=${firstPt[1]}&mlon=${firstPt[0]}#map=16/${firstPt[1]}/${firstPt[0]}`)}
+                  style={{ marginTop: 6 }}
+                >
+                  <Text style={{ color: '#0284c7', fontWeight: '700', fontSize: 12 }}>Abrir ubicación en Mapa →</Text>
+                </TouchableOpacity>
+              </View>
+            );
+          }}
+        />
+      )}
+
+      {tab === 'sync' && (
+        <ScrollView contentContainerStyle={{ padding: 14, gap: 12 }}>
+          <View style={styles.card}>
+            <Text style={styles.sectionHeader}>Usuario Conectado</Text>
+            <Text style={styles.cardTitle}>{user?.name}</Text>
+            <Text style={styles.meta}>{user?.email} · Rol: {user?.role}</Text>
+          </View>
+          <View style={styles.card}>
+            <Text style={styles.sectionHeader}>Estado Cola Offline</Text>
+            <Text style={styles.meta}>Mutaciones en cola: {queueItems.length}</Text>
+            <Text style={styles.meta}>Evidencias pendientes de subida: {pendingEvCount}</Text>
+            <TouchableOpacity onPress={handleSync} disabled={syncing} style={[styles.primaryBtn, { marginTop: 12 }]}>
+              <Text style={styles.primaryTxt}>{syncing ? 'Sincronizando...' : 'Sincronizar Ahora'}</Text>
+            </TouchableOpacity>
+          </View>
           <TouchableOpacity
             onPress={async () => {
               await clearSession();
               setLoggedIn(false);
             }}
+            style={[styles.card, { alignItems: 'center' }]}
           >
-            <Text style={styles.headerLink}>Salir</Text>
+            <Text style={{ color: '#dc2626', fontWeight: '700' }}>Cerrar Sesión</Text>
           </TouchableOpacity>
-        </View>
+        </ScrollView>
+      )}
+
+      {/* Bottom Tab Bar */}
+      <View style={styles.tabBar}>
+        <TouchableOpacity onPress={() => setTab('activities')} style={styles.tabItem}>
+          <Text style={[styles.tabTxt, tab === 'activities' && styles.tabTxtActive]}>📋 Actividades</Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={() => setTab('map')} style={styles.tabItem}>
+          <Text style={[styles.tabTxt, tab === 'map' && styles.tabTxtActive]}>🗺️ GPS ({allGeo.length})</Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={() => setTab('sync')} style={styles.tabItem}>
+          <Text style={[styles.tabTxt, tab === 'sync' && styles.tabTxtActive]}>🔄 Sync ({pendingTotal})</Text>
+        </TouchableOpacity>
       </View>
 
-      <FlatList
-        data={activities}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={{ padding: 16, gap: 12 }}
-        ListEmptyComponent={<Text style={styles.empty}>No hay actividades descargadas. Presione Sincronizar.</Text>}
-        renderItem={({ item }) => (
-          <TouchableOpacity onPress={() => openActivity(item)} style={styles.card}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-              <Text style={styles.folio}>{item.folio}</Text>
-              <Text style={styles.badge}>{item.status}</Text>
-            </View>
-            <Text style={styles.cardTitle}>{item.title}</Text>
-            <Text style={styles.meta}>{item.typeName} · {item.priority}</Text>
-          </TouchableOpacity>
-        )}
-      />
+      <NewActivityModal visible={showNewModal} types={types} onCreate={handleCreateActivity} onClose={() => setShowNewModal(false)} />
     </SafeAreaView>
   );
 }
@@ -289,18 +570,31 @@ const styles = StyleSheet.create({
   loginCard: { backgroundColor: '#fff', padding: 24, borderRadius: 14, gap: 12 },
   brand: { fontSize: 22, fontWeight: '800', color: '#0f4c81', textAlign: 'center' },
   sub: { fontSize: 12, color: '#64748b', textAlign: 'center', marginBottom: 8 },
-  input: { borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 8, padding: 12, backgroundColor: '#fff' },
+  input: { borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 8, padding: 10, backgroundColor: '#fff', fontSize: 13 },
   primaryBtn: { backgroundColor: '#0f4c81', padding: 14, borderRadius: 10, alignItems: 'center' },
-  primaryTxt: { color: '#fff', fontWeight: '700', fontSize: 15 },
-  secondaryBtn: { backgroundColor: '#e0f2fe', padding: 10, borderRadius: 8, alignItems: 'center' },
-  secondaryTxt: { color: '#0369a1', fontWeight: '700', fontSize: 13 },
-  header: { backgroundColor: '#0f4c81', paddingTop: 44, paddingBottom: 14, paddingHorizontal: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  primaryTxt: { color: '#fff', fontWeight: '700', fontSize: 14 },
+  smallPriBtn: { backgroundColor: '#0f4c81', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8 },
+  smallPriTxt: { color: '#fff', fontWeight: '700', fontSize: 12 },
+  header: { backgroundColor: '#0f4c81', paddingTop: 42, paddingBottom: 14, paddingHorizontal: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   headerTitle: { color: '#fff', fontSize: 17, fontWeight: '700' },
-  headerLink: { color: '#bae6fd', fontSize: 14, fontWeight: '600' },
-  card: { backgroundColor: '#fff', padding: 16, borderRadius: 12, borderWidth: 1, borderColor: '#e2e8f0' },
+  headerLink: { color: '#bae6fd', fontSize: 13, fontWeight: '700' },
+  toolbar: { flexDirection: 'row', gap: 8, padding: 12, alignItems: 'center' },
+  filterChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, backgroundColor: '#e2e8f0', marginRight: 6, height: 30 },
+  filterChipActive: { backgroundColor: '#0f4c81' },
+  filterTxt: { fontSize: 11, fontWeight: '700', color: '#334155' },
+  card: { backgroundColor: '#fff', padding: 14, borderRadius: 12, borderWidth: 1, borderColor: '#e2e8f0' },
+  rowBetween: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  sectionHeader: { fontSize: 14, fontWeight: '800', color: '#0f4c81', marginBottom: 8 },
+  wfBtn: { backgroundColor: '#1e293b', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8 },
+  wfBtnTxt: { color: '#fff', fontSize: 12, fontWeight: '700' },
+  subItem: { borderTopWidth: 1, borderTopColor: '#f1f5f9', paddingTop: 8, marginTop: 8 },
   folio: { fontWeight: '800', color: '#0284c7', fontSize: 13 },
-  badge: { fontSize: 11, fontWeight: '700', color: '#334155', backgroundColor: '#f1f5f9', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 },
-  cardTitle: { fontSize: 16, fontWeight: '700', color: '#0f172a', marginTop: 4 },
-  meta: { fontSize: 12, color: '#64748b', marginTop: 4 },
+  badge: { fontSize: 11, fontWeight: '700', color: '#1e40af', backgroundColor: '#dbeafe', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 },
+  cardTitle: { fontSize: 15, fontWeight: '700', color: '#0f172a', marginTop: 4 },
+  meta: { fontSize: 12, color: '#64748b', marginTop: 3 },
   empty: { textAlign: 'center', color: '#64748b', marginTop: 40 },
+  tabBar: { flexDirection: 'row', borderTopWidth: 1, borderTopColor: '#cbd5e1', backgroundColor: '#fff', paddingBottom: 14, paddingTop: 10 },
+  tabItem: { flex: 1, alignItems: 'center' },
+  tabTxt: { fontSize: 12, fontWeight: '600', color: '#64748b' },
+  tabTxtActive: { color: '#0f4c81', fontWeight: '800' },
 });
