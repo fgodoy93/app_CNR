@@ -10,7 +10,11 @@ export default function UsuariosPage() {
   const [roles, setRoles] = useState<any[]>([]);
   const [units, setUnits] = useState<any[]>([]);
   const [showModal, setShowModal] = useState(false);
+  const [showUnitModal, setShowUnitModal] = useState(false);
+  const [showRoleModal, setShowRoleModal] = useState(false);
   const [form, setForm] = useState({ email: '', name: '', password: '', roleId: '', unitId: '' });
+  const [unitForm, setUnitForm] = useState({ code: '', name: '' });
+  const [roleForm, setRoleForm] = useState({ key: '', name: '', permissions: 'activities.read.unit,activities.create,activities.write' });
   const [error, setError] = useState<string | null>(null);
 
   const load = () => {
@@ -45,6 +49,36 @@ export default function UsuariosPage() {
     }
   };
 
+  const createUnit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    try {
+      await api.post('/api/v1/admin/units', unitForm);
+      setShowUnitModal(false);
+      setUnitForm({ code: '', name: '' });
+      load();
+    } catch (err: any) {
+      setError(err.message);
+    }
+  };
+
+  const createRole = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    try {
+      await api.post('/api/v1/admin/roles', {
+        key: roleForm.key,
+        name: roleForm.name,
+        permissions: roleForm.permissions.split(',').map((s) => s.trim()).filter(Boolean),
+      });
+      setShowRoleModal(false);
+      setRoleForm({ key: '', name: '', permissions: 'activities.read.unit,activities.create,activities.write' });
+      load();
+    } catch (err: any) {
+      setError(err.message);
+    }
+  };
+
   const toggleActive = async (u: any) => {
     await api.patch(`/api/v1/admin/users/${u.id}`, { active: !u.active });
     load();
@@ -54,11 +88,19 @@ export default function UsuariosPage() {
     <AppShell title="Administración de Usuarios, Roles y Unidades">
       {error && <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">{error}</div>}
 
-      <div className="flex justify-between items-center mb-4">
+      <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
         <p className="text-sm text-slate-500">Capacidad licenciada: {users.filter((u) => u.active).length} / 45 usuarios habilitados</p>
-        <button onClick={() => setShowModal(true)} className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#0f4c81] text-white rounded-lg text-sm font-medium">
-          <Plus className="w-4 h-4" /> Nuevo Usuario
-        </button>
+        <div className="flex gap-2">
+          <button onClick={() => setShowUnitModal(true)} className="inline-flex items-center gap-1 px-3 py-2 border border-slate-300 bg-white rounded-lg text-sm font-medium">
+            <Plus className="w-4 h-4" /> Unidad
+          </button>
+          <button onClick={() => setShowRoleModal(true)} className="inline-flex items-center gap-1 px-3 py-2 border border-slate-300 bg-white rounded-lg text-sm font-medium">
+            <Plus className="w-4 h-4" /> Rol
+          </button>
+          <button onClick={() => setShowModal(true)} className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#0f4c81] text-white rounded-lg text-sm font-medium">
+            <Plus className="w-4 h-4" /> Nuevo Usuario
+          </button>
+        </div>
       </div>
 
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden mb-6">
@@ -138,6 +180,35 @@ export default function UsuariosPage() {
             <div className="flex justify-end gap-2">
               <button type="button" onClick={() => setShowModal(false)} className="px-4 py-2 border rounded-lg text-sm">Cancelar</button>
               <button type="submit" className="px-4 py-2 bg-[#0f4c81] text-white rounded-lg text-sm">Crear</button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {showUnitModal && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
+          <form onSubmit={createUnit} className="bg-white rounded-xl max-w-md w-full p-6 space-y-4">
+            <h3 className="font-bold text-lg">Nueva Unidad Institucional</h3>
+            <input value={unitForm.code} onChange={(e) => setUnitForm({ ...unitForm, code: e.target.value.toUpperCase() })} placeholder="Código (ej. DEPTO_ESTUDIOS)" className="w-full px-3 py-2 border rounded-lg text-sm font-mono" required />
+            <input value={unitForm.name} onChange={(e) => setUnitForm({ ...unitForm, name: e.target.value })} placeholder="Nombre completo de la unidad" className="w-full px-3 py-2 border rounded-lg text-sm" required />
+            <div className="flex justify-end gap-2">
+              <button type="button" onClick={() => setShowUnitModal(false)} className="px-4 py-2 border rounded-lg text-sm">Cancelar</button>
+              <button type="submit" className="px-4 py-2 bg-[#0f4c81] text-white rounded-lg text-sm">Crear Unidad</button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {showRoleModal && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
+          <form onSubmit={createRole} className="bg-white rounded-xl max-w-md w-full p-6 space-y-4">
+            <h3 className="font-bold text-lg">Nuevo Rol / Perfil</h3>
+            <input value={roleForm.key} onChange={(e) => setRoleForm({ ...roleForm, key: e.target.value.toLowerCase() })} placeholder="clave (ej. auditor)" className="w-full px-3 py-2 border rounded-lg text-sm font-mono" required />
+            <input value={roleForm.name} onChange={(e) => setRoleForm({ ...roleForm, name: e.target.value })} placeholder="Nombre del rol" className="w-full px-3 py-2 border rounded-lg text-sm" required />
+            <textarea value={roleForm.permissions} onChange={(e) => setRoleForm({ ...roleForm, permissions: e.target.value })} rows={2} className="w-full px-3 py-2 border rounded-lg text-xs font-mono" required />
+            <div className="flex justify-end gap-2">
+              <button type="button" onClick={() => setShowRoleModal(false)} className="px-4 py-2 border rounded-lg text-sm">Cancelar</button>
+              <button type="submit" className="px-4 py-2 bg-[#0f4c81] text-white rounded-lg text-sm">Crear Rol</button>
             </div>
           </form>
         </div>

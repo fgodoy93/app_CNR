@@ -3,20 +3,23 @@
 import { useEffect, useState } from 'react';
 import { AppShell } from '@/components/AppShell';
 import { api, API_BASE } from '@/lib/api';
-import { Key, Webhook, Terminal } from 'lucide-react';
+import { Key, Webhook, Terminal, Link2 } from 'lucide-react';
 
 export default function IntegracionesPage() {
   const [clients, setClients] = useState<any[]>([]);
   const [webhooks, setWebhooks] = useState<any[]>([]);
   const [deliveries, setDeliveries] = useState<any[]>([]);
+  const [connectors, setConnectors] = useState<any[]>([]);
   const [newKeyName, setNewKeyName] = useState('');
   const [createdKey, setCreatedKey] = useState<string | null>(null);
   const [whForm, setWhForm] = useState({ name: '', url: '', events: '*' });
+  const [connForm, setConnForm] = useState({ key: '', name: '', urlTemplate: '' });
 
   const load = () => {
     api.get<{ data: any[] }>('/api/v1/integrations/api-clients').then((r) => setClients(r.data)).catch(() => undefined);
     api.get<{ data: any[] }>('/api/v1/integrations/webhooks').then((r) => setWebhooks(r.data)).catch(() => undefined);
     api.get<{ data: any[] }>('/api/v1/integrations/webhooks/deliveries').then((r) => setDeliveries(r.data)).catch(() => undefined);
+    api.get<{ data: any[] }>('/api/v1/integrations/connectors').then((r) => setConnectors(r.data)).catch(() => undefined);
   };
 
   useEffect(() => {
@@ -39,6 +42,17 @@ export default function IntegracionesPage() {
       events: whForm.events.split(',').map((s) => s.trim()),
     });
     setWhForm({ name: '', url: '', events: '*' });
+    load();
+  };
+
+  const createConnector = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await api.post('/api/v1/integrations/connectors', {
+      key: connForm.key,
+      name: connForm.name,
+      urlTemplate: connForm.urlTemplate,
+    });
+    setConnForm({ key: '', name: '', urlTemplate: '' });
     load();
   };
 
@@ -94,6 +108,31 @@ export default function IntegracionesPage() {
                 <div className="text-xs text-slate-500 truncate">{w.url}</div>
               </div>
             ))}
+          </div>
+        </div>
+
+        {/* External Connectors */}
+        <div className="lg:col-span-2 bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-4">
+          <h3 className="font-semibold text-slate-800 flex items-center gap-2"><Link2 className="w-4 h-4 text-blue-700" /> Conectores de Consulta y Precarga Externa</h3>
+          <form onSubmit={createConnector} className="grid grid-cols-1 sm:grid-cols-4 gap-2">
+            <input value={connForm.key} onChange={(e) => setConnForm({ ...connForm, key: e.target.value })} placeholder="clave (ej. ley18450)" className="px-3 py-2 border rounded-lg text-sm font-mono" required />
+            <input value={connForm.name} onChange={(e) => setConnForm({ ...connForm, name: e.target.value })} placeholder="Nombre sistema" className="px-3 py-2 border rounded-lg text-sm" required />
+            <input type="url" value={connForm.urlTemplate} onChange={(e) => setConnForm({ ...connForm, urlTemplate: e.target.value })} placeholder="https://api.cnr.gob.cl/proyectos?q={{query}}" className="px-3 py-2 border rounded-lg text-sm" required />
+            <button type="submit" className="px-4 py-2 bg-[#0f4c81] text-white rounded-lg text-sm font-medium">Agregar Conector</button>
+          </form>
+          <div className="space-y-2 text-sm">
+            {connectors.length === 0 ? (
+              <p className="text-xs text-slate-400">Sin conectores externos configurados aún.</p>
+            ) : (
+              connectors.map((c) => (
+                <div key={c.id} className="p-2.5 border rounded-lg flex justify-between items-center">
+                  <div>
+                    <span className="font-medium">{c.name}</span> <span className="font-mono text-xs text-slate-400">({c.key})</span>
+                    <div className="text-xs text-slate-500 font-mono">{c.method} {c.urlTemplate}</div>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </div>
 

@@ -183,6 +183,170 @@ async function main() {
     });
   }
 
+  // 7. Datos de demostración precargados (si aún no existen los folios demo)
+  const existingDemo = await prisma.activity.findUnique({ where: { folio: 'INS-2026-000001' } });
+  if (!existingDemo) {
+    const insType = await prisma.activityType.findUniqueOrThrow({ where: { key: 'inspeccion_obras' } });
+    const otType = await prisma.activityType.findUniqueOrThrow({ where: { key: 'orden_trabajo' } });
+    const vtType = await prisma.activityType.findUniqueOrThrow({ where: { key: 'visita_tecnica' } });
+    const sopType = await prisma.activityType.findUniqueOrThrow({ where: { key: 'soporte_ti' } });
+    const fv = await prisma.formVersion.findFirst({ where: { templateId: formTemplate.id }, orderBy: { version: 'desc' } });
+
+    const a1 = await prisma.activity.create({
+      data: {
+        folio: 'INS-2026-000001',
+        typeId: insType.id,
+        title: 'Inspección Bocatoma Canal Matriz Maule',
+        description: 'Verificación de compuertas, revestimiento y aforo de caudal Ley 18.450.',
+        priority: 'ALTA',
+        status: 'EN_EJECUCION',
+        progress: 45,
+        assigneeId: fieldUser.id,
+        createdById: adminUser.id,
+        unitId: unitRiego.id,
+        formVersionId: fv?.id ?? null,
+        externalRef: 'CNR-18450-9921',
+        address: 'Sector Colbún, Región del Maule',
+        lat: -35.695,
+        lng: -71.405,
+        data: { codigo_proyecto: 'CNR-18450-9921', estado_obra: 'conforme', caudal_medido: 850 },
+      },
+    });
+
+    await prisma.geoFeature.createMany({
+      data: [
+        {
+          id: 'geo-demo-pt-1',
+          code: 'PT-2026-000001',
+          activityId: a1.id,
+          kind: 'POINT',
+          geometry: { type: 'Point', coordinates: [-71.405, -35.695] },
+          label: 'Compuerta Captación N°1',
+          status: 'Conforme',
+          observations: 'Estructura operativa sin filtraciones',
+          accuracy: 3.2,
+          capturedAt: new Date(),
+          capturedById: fieldUser.id,
+        },
+        {
+          id: 'geo-demo-ln-1',
+          code: 'LN-2026-000001',
+          activityId: a1.id,
+          kind: 'LINE',
+          geometry: {
+            type: 'LineString',
+            coordinates: [[-71.405, -35.695], [-71.408, -35.698], [-71.412, -35.701]],
+          },
+          label: 'Tramo Revestido 450m',
+          status: 'Conforme',
+          accuracy: 4.5,
+          capturedAt: new Date(),
+          capturedById: fieldUser.id,
+        },
+      ],
+    });
+
+    const a2 = await prisma.activity.create({
+      data: {
+        folio: 'OT-2026-000001',
+        typeId: otType.id,
+        title: 'Reparación Telemetría Estación Limarí',
+        description: 'Reemplazo de sensor ultrasónico de nivel y calibración en terreno.',
+        priority: 'CRITICA',
+        status: 'EN_REVISION',
+        progress: 80,
+        assigneeId: fieldUser.id,
+        createdById: adminUser.id,
+        unitId: unitRiego.id,
+        formVersionId: fv?.id ?? null,
+        address: 'Embalse La Paloma, Ovalle, Coquimbo',
+        lat: -30.688,
+        lng: -71.036,
+        data: {
+          codigo_proyecto: 'OT-LIM-04',
+          estado_obra: 'observaciones',
+          obs_detalle: 'Sensor reemplazado; se observa oxidación leve en gabinete.',
+          caudal_medido: 310,
+        },
+      },
+    });
+
+    await prisma.geoFeature.create({
+      data: {
+        id: 'geo-demo-pg-1',
+        code: 'PG-2026-000001',
+        activityId: a2.id,
+        kind: 'POLYGON',
+        geometry: {
+          type: 'Polygon',
+          coordinates: [[[-71.038, -30.686], [-71.034, -30.686], [-71.034, -30.69], [-71.038, -30.69], [-71.038, -30.686]]],
+        },
+        label: 'Área Estación Limarí',
+        status: 'En Revisión',
+        accuracy: 4.0,
+        capturedAt: new Date(),
+        capturedById: fieldUser.id,
+      },
+    });
+
+    await prisma.activityTransition.create({
+      data: {
+        activityId: a2.id,
+        transitionKey: 'enviar_revision',
+        label: 'Enviar a revisión',
+        fromStatus: 'EN_EJECUCION',
+        toStatus: 'EN_REVISION',
+        userId: fieldUser.id,
+        comment: 'Trabajo completado, adjunto observaciones del gabinete.',
+      },
+    });
+
+    await prisma.activity.createMany({
+      data: [
+        {
+          folio: 'VT-2026-000001',
+          typeId: vtType.id,
+          title: 'Visita Técnica Canal Laja Sur',
+          description: 'Levantamiento inicial de beneficiarios y trazado.',
+          priority: 'MEDIA',
+          status: 'ASIGNADA',
+          progress: 10,
+          assigneeId: fieldUser.id,
+          createdById: adminUser.id,
+          unitId: unitRiego.id,
+          address: 'Los Ángeles, Biobío',
+          lat: -37.468,
+          lng: -72.353,
+        },
+        {
+          folio: 'SOP-2026-000001',
+          typeId: sopType.id,
+          title: 'Soporte TI Puesto de Trabajo Piso 4',
+          description: 'Configuración de VPN institucional y certificado digital.',
+          priority: 'BAJA',
+          status: 'CERRADA',
+          progress: 100,
+          assigneeId: adminUser.id,
+          createdById: adminUser.id,
+          unitId: unitTI.id,
+          address: "Libertador Bernardo O'Higgins 1449, Torre 1, Piso 4",
+          lat: -33.446,
+          lng: -70.658,
+          closedAt: new Date(),
+        },
+      ],
+    });
+
+    await prisma.notification.create({
+      data: {
+        userId: adminUser.id,
+        title: 'OT-2026-000001 requiere revisión',
+        body: 'Juan Inspector envió a revisión la reparación de telemetría en Limarí.',
+        link: `/actividades/${a2.id}`,
+      },
+    });
+  }
+
   console.log('Seed completado exitosamente.');
   console.log('Credenciales de demostración creadas:');
   console.log('• Administrador: admin@cnr.gob.cl / Cnr2026!Demo');
