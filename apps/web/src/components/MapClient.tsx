@@ -13,6 +13,8 @@ export function MapClient(props: {
   height?: string;
   onSelectPoint?: (lat: number, lng: number) => void;
   focusFeatureId?: string | null;
+  draftPoints?: [number, number][];
+  draftKind?: 'POINT' | 'LINE' | 'POLYGON';
 }) {
   return <InnerMap {...props} />;
 }

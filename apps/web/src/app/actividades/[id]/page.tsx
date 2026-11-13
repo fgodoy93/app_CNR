@@ -7,7 +7,8 @@ import { AppShell } from '@/components/AppShell';
 import { DynamicFormRenderer } from '@/components/DynamicFormRenderer';
 import { MapClient } from '@/components/MapClient';
 import { api, API_BASE, getToken } from '@/lib/api';
-import { FileText, MapPin, Upload, Save, CheckCircle, ArrowLeft } from 'lucide-react';
+import { closeRing, type Position } from '@terreno/shared';
+import { FileText, MapPin, Upload, Save, CheckCircle, ArrowLeft, Undo2, Trash2 } from 'lucide-react';
 
 function ActividadDetailInner() {
   const { id } = useParams<{ id: string }>();
@@ -17,6 +18,11 @@ function ActividadDetailInner() {
   const [comment, setComment] = useState('');
   const [msg, setMsg] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [drawKind, setDrawKind] = useState<'POINT' | 'LINE' | 'POLYGON'>('POINT');
+  const [draftPoints, setDraftPoints] = useState<[number, number][]>([]);
+  const [geoLabel, setGeoLabel] = useState('');
+  const [latInput, setLatInput] = useState('');
+  const [lngInput, setLngInput] = useState('');
 
   const load = () => {
     api
@@ -76,17 +82,69 @@ function ActividadDetailInner() {
   };
 
   const addMapPoint = async (lat: number, lng: number) => {
+    if (drawKind === 'POINT') {
+      try {
+        await api.post('/api/v1/geo', {
+          id: crypto.randomUUID(),
+          activityId: detail.activity.id,
+          kind: 'POINT',
+          geometry: { type: 'Point', coordinates: [lng, lat] },
+          label: geoLabel.trim() || `Punto (${lat.toFixed(4)}, ${lng.toFixed(4)})`,
+          accuracy: 5,
+          capturedAt: new Date().toISOString(),
+        });
+        setGeoLabel('');
+        setMsg('Punto GPS agregado desde el mapa.');
+        load();
+      } catch (e: any) {
+        setError(e.message);
+      }
+      return;
+    }
+    setDraftPoints((prev) => [...prev, [lat, lng]]);
+  };
+
+  const addManualCoord = () => {
+    setError(null);
+    const lat = Number(latInput.replace(',', '.'));
+    const lng = Number(lngInput.replace(',', '.'));
+    if (!Number.isFinite(lat) || !Number.isFinite(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+      setError('Ingrese coordenadas válidas (ej. Lat -33.4489, Lng -70.6693).');
+      return;
+    }
+    setLatInput('');
+    setLngInput('');
+    void addMapPoint(lat, lng);
+  };
+
+  const saveDraftGeometry = async () => {
+    setError(null);
+    if (drawKind === 'LINE' && draftPoints.length < 2) {
+      setError('Una línea requiere al menos 2 vértices.');
+      return;
+    }
+    if (drawKind === 'POLYGON' && draftPoints.length < 3) {
+      setError('Un polígono requiere al menos 3 vértices.');
+      return;
+    }
+    const coords: Position[] = draftPoints.map(([lat, lng]) => [lng, lat]);
+    const geometry =
+      drawKind === 'LINE'
+        ? { type: 'LineString', coordinates: coords }
+        : { type: 'Polygon', coordinates: [closeRing(coords)] };
     try {
       await api.post('/api/v1/geo', {
         id: crypto.randomUUID(),
         activityId: detail.activity.id,
-        kind: 'POINT',
-        geometry: { type: 'Point', coordinates: [lng, lat] },
-        label: `Punto Web (${lat.toFixed(4)}, ${lng.toFixed(4)})`,
+        kind: drawKind,
+        geometry,
+        label: geoLabel.trim() || (drawKind === 'LINE' ? `Línea (${draftPoints.length} vértices)` : `Polígono (${draftPoints.length} vértices)`),
         accuracy: 5,
         capturedAt: new Date().toISOString(),
       });
-      setMsg('Punto GPS agregado desde el mapa.');
+      setDraftPoints([]);
+      setGeoLabel('');
+      setMsg(`${drawKind === 'LINE' ? 'Línea' : 'Polígono'} guardado en el mapa.`);
       load();
     } catch (e: any) {
       setError(e.message);
@@ -264,13 +322,105 @@ function ActividadDetailInner() {
         <div className="lg:col-span-5 space-y-6">
           {/* Map & GeoFeatures */}
           <div className="bg-white p-5 rounded-xl border border-[#d8e3df] shadow-sm space-y-3">
-            <div className="flex justify-between items-center">
+            <div className="flex flex-wrap justify-between items-center gap-2">
               <h3 className="font-semibold text-[#0b3b60] flex items-center gap-2">
-                <MapPin className="w-4 h-4 text-[#146c43]" /> Puntos Georreferenciados ({detail.geoFeatures?.length ?? 0})
+                <MapPin className="w-4 h-4 text-[#146c43]" /> Geometrías GPS ({detail.geoFeatures?.length ?? 0})
               </h3>
-              <span className="text-xs text-slate-400">Clic en mapa para agregar</span>
+              <div className="inline-flex rounded-lg border border-[#d8e3df] p-0.5 bg-[#f2f6f4]">
+                {([
+                  { key: 'POINT', label: 'Punto' },
+                  { key: 'LINE', label: 'Línea' },
+                  { key: 'POLYGON', label: 'Polígono' },
+                ] as const).map((opt) => (
+                  <button
+                    key={opt.key}
+                    type="button"
+                    onClick={() => {
+                      setDrawKind(opt.key);
+                      setDraftPoints([]);
+                    }}
+                    className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-colors ${
+                      drawKind === opt.key ? 'bg-[#0b3b60] text-white' : 'text-slate-600 hover:bg-white'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
             </div>
-            <MapClient features={detail.geoFeatures ?? []} height="280px" onSelectPoint={addMapPoint} />
+
+            <input
+              value={geoLabel}
+              onChange={(e) => setGeoLabel(e.target.value)}
+              placeholder={`Etiqueta de referencia para ${drawKind === 'POINT' ? 'el punto' : drawKind === 'LINE' ? 'la línea' : 'el polígono'} (opcional)`}
+              className="w-full px-3 py-1.5 border border-[#d8e3df] rounded-lg text-xs bg-white"
+            />
+
+            <MapClient
+              features={detail.geoFeatures ?? []}
+              height="280px"
+              onSelectPoint={addMapPoint}
+              draftPoints={draftPoints}
+              draftKind={drawKind}
+            />
+
+            {/* Ingreso por coordenadas manuales */}
+            <div className="pt-2 border-t border-slate-100 space-y-2">
+              <div className="text-[11px] font-semibold text-slate-500">
+                {drawKind === 'POINT'
+                  ? 'Haz clic en el mapa o ingresa coordenadas exactas:'
+                  : `Haz clic en el mapa para agregar vértices (${draftPoints.length}) o ingrésalos por coordenadas:`}
+              </div>
+              <div className="flex flex-wrap gap-2 items-center">
+                <input
+                  value={latInput}
+                  onChange={(e) => setLatInput(e.target.value)}
+                  placeholder="Latitud (ej. -33.4489)"
+                  className="flex-1 min-w-[115px] px-2.5 py-1.5 border border-[#d8e3df] rounded-lg text-xs"
+                />
+                <input
+                  value={lngInput}
+                  onChange={(e) => setLngInput(e.target.value)}
+                  placeholder="Longitud (ej. -70.6693)"
+                  className="flex-1 min-w-[115px] px-2.5 py-1.5 border border-[#d8e3df] rounded-lg text-xs"
+                />
+                <button
+                  type="button"
+                  onClick={addManualCoord}
+                  className="px-3 py-1.5 bg-[#0e7490] hover:bg-[#0b5c73] text-white rounded-lg text-xs font-semibold"
+                >
+                  {drawKind === 'POINT' ? '+ Agregar Punto' : '+ Vértice'}
+                </button>
+              </div>
+
+              {drawKind !== 'POINT' && draftPoints.length > 0 && (
+                <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setDraftPoints((p) => p.slice(0, -1))}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 border border-[#d8e3df] rounded-md text-xs text-slate-600 hover:bg-slate-50"
+                    >
+                      <Undo2 className="w-3 h-3" /> Deshacer
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDraftPoints([])}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 border border-[#d8e3df] rounded-md text-xs text-red-600 hover:bg-red-50"
+                    >
+                      <Trash2 className="w-3 h-3" /> Limpiar
+                    </button>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={saveDraftGeometry}
+                    className="px-3 py-1.5 bg-[#146c43] hover:bg-[#0f5434] text-white rounded-lg text-xs font-semibold"
+                  >
+                    Guardar {drawKind === 'LINE' ? 'Línea' : 'Polígono'} ({draftPoints.length})
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Documents & Traceability */}

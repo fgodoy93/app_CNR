@@ -26,16 +26,23 @@ export function LeafletMap({
   height = '480px',
   onSelectPoint,
   focusFeatureId,
+  draftPoints,
+  draftKind,
 }: {
   features: MapFeatureItem[];
   height?: string;
   onSelectPoint?: (lat: number, lng: number) => void;
   focusFeatureId?: string | null;
+  draftPoints?: [number, number][];
+  draftKind?: 'POINT' | 'LINE' | 'POLYGON';
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const layerRef = useRef<L.LayerGroup | null>(null);
+  const draftLayerRef = useRef<L.LayerGroup | null>(null);
   const layersByIdRef = useRef<Map<string, L.Layer>>(new Map());
+  const onSelectRef = useRef(onSelectPoint);
+  onSelectRef.current = onSelectPoint;
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
@@ -45,22 +52,23 @@ export function LeafletMap({
       attribution: '&copy; OpenStreetMap contributors',
     }).addTo(map);
 
-    if (onSelectPoint) {
-      map.on('click', (e: L.LeafletMouseEvent) => {
-        onSelectPoint(e.latlng.lat, e.latlng.lng);
-      });
-    }
+    map.on('click', (e: L.LeafletMouseEvent) => {
+      onSelectRef.current?.(e.latlng.lat, e.latlng.lng);
+    });
 
     const group = L.layerGroup().addTo(map);
+    const draftGroup = L.layerGroup().addTo(map);
     mapRef.current = map;
     layerRef.current = group;
+    draftLayerRef.current = draftGroup;
 
     return () => {
       map.remove();
       mapRef.current = null;
       layerRef.current = null;
+      draftLayerRef.current = null;
     };
-  }, [onSelectPoint]);
+  }, []);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -139,6 +147,35 @@ export function LeafletMap({
       layer.openPopup();
     }
   }, [focusFeatureId]);
+
+  useEffect(() => {
+    const draftGroup = draftLayerRef.current;
+    if (!draftGroup) return;
+    draftGroup.clearLayers();
+    if (!draftPoints || draftPoints.length === 0) return;
+
+    draftPoints.forEach(([lat, lng], idx) => {
+      L.circleMarker([lat, lng], {
+        radius: 6,
+        color: '#b45309',
+        fillColor: '#fbbf24',
+        fillOpacity: 1,
+        weight: 2,
+      })
+        .bindTooltip(`V${idx + 1}`, { permanent: true, direction: 'top', offset: [0, -6], className: 'cnr-map-label' })
+        .addTo(draftGroup);
+    });
+
+    if (draftKind === 'LINE' && draftPoints.length >= 2) {
+      L.polyline(draftPoints, { color: '#d97706', weight: 3, dashArray: '6, 6' }).addTo(draftGroup);
+    } else if (draftKind === 'POLYGON' && draftPoints.length >= 2) {
+      if (draftPoints.length >= 3) {
+        L.polygon(draftPoints, { color: '#146c43', fillColor: '#22c55e', fillOpacity: 0.2, weight: 3, dashArray: '6, 6' }).addTo(draftGroup);
+      } else {
+        L.polyline(draftPoints, { color: '#146c43', weight: 3, dashArray: '6, 6' }).addTo(draftGroup);
+      }
+    }
+  }, [draftPoints, draftKind]);
 
   return <div ref={containerRef} style={{ height, width: '100%' }} className="rounded-xl border border-slate-200 z-10" />;
 }
