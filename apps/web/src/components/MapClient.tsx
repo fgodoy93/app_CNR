@@ -12,6 +12,7 @@ export function MapClient(props: {
   features: MapFeatureItem[];
   height?: string;
   onSelectPoint?: (lat: number, lng: number) => void;
+  focusFeatureId?: string | null;
 }) {
   return <InnerMap {...props} />;
 }

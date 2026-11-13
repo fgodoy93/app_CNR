@@ -25,14 +25,17 @@ export function LeafletMap({
   features,
   height = '480px',
   onSelectPoint,
+  focusFeatureId,
 }: {
   features: MapFeatureItem[];
   height?: string;
   onSelectPoint?: (lat: number, lng: number) => void;
+  focusFeatureId?: string | null;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const layerRef = useRef<L.LayerGroup | null>(null);
+  const layersByIdRef = useRef<Map<string, L.Layer>>(new Map());
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
@@ -65,6 +68,7 @@ export function LeafletMap({
     if (!map || !group) return;
 
     group.clearLayers();
+    layersByIdRef.current.clear();
     const bounds: L.LatLngExpression[] = [];
 
     for (const f of features) {
@@ -92,30 +96,49 @@ export function LeafletMap({
           .bindPopup(popupHtml)
           .bindTooltip(refLabel, { permanent: true, direction: 'top', offset: [0, -8], className: 'cnr-map-label' });
         marker.addTo(group);
+        layersByIdRef.current.set(f.id, marker);
         bounds.push([lat, lng]);
       } else if (f.geometry.type === 'LineString') {
         const latlngs = (f.geometry.coordinates as [number, number][]).map(([lng, lat]) => [lat, lng] as [number, number]);
-        L.polyline(latlngs, { color: f.kind === 'TRACK' ? '#d97706' : '#0e7490', weight: 4 })
+        const line = L.polyline(latlngs, { color: f.kind === 'TRACK' ? '#d97706' : '#0e7490', weight: 4 })
           .bindPopup(popupHtml)
           .bindTooltip(refLabel, { permanent: true, direction: 'center', className: 'cnr-map-label' })
           .addTo(group);
+        layersByIdRef.current.set(f.id, line);
         bounds.push(...latlngs);
       } else if (f.geometry.type === 'Polygon') {
         const rings = (f.geometry.coordinates as [number, number][][]).map((ring) =>
           ring.map(([lng, lat]) => [lat, lng] as [number, number]),
         );
-        L.polygon(rings, { color: '#146c43', fillOpacity: 0.25, weight: 2 })
+        const poly = L.polygon(rings, { color: '#146c43', fillOpacity: 0.25, weight: 2 })
           .bindPopup(popupHtml)
           .bindTooltip(refLabel, { permanent: true, direction: 'center', className: 'cnr-map-label' })
           .addTo(group);
+        layersByIdRef.current.set(f.id, poly);
         if (rings[0]) bounds.push(...rings[0]);
       }
     }
 
-    if (bounds.length > 0) {
+    if (bounds.length > 0 && !focusFeatureId) {
       map.fitBounds(L.latLngBounds(bounds), { padding: [30, 30], maxZoom: 15 });
     }
   }, [features]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !focusFeatureId) return;
+    const layer = layersByIdRef.current.get(focusFeatureId) as any;
+    if (!layer) return;
+
+    if (typeof layer.getLatLng === 'function') {
+      map.flyTo(layer.getLatLng(), 16, { duration: 0.6 });
+    } else if (typeof layer.getBounds === 'function') {
+      map.flyToBounds(layer.getBounds(), { padding: [40, 40], maxZoom: 16, duration: 0.6 });
+    }
+    if (typeof layer.openPopup === 'function') {
+      layer.openPopup();
+    }
+  }, [focusFeatureId]);
 
   return <div ref={containerRef} style={{ height, width: '100%' }} className="rounded-xl border border-slate-200 z-10" />;
 }

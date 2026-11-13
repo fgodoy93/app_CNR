@@ -18,6 +18,7 @@ const KINDS = [
 export default function MapaPage() {
   const [features, setFeatures] = useState<any[]>([]);
   const [kindFilter, setKindFilter] = useState('');
+  const [focusId, setFocusId] = useState<string | null>(null);
 
   useEffect(() => {
     api.get<{ data: any[] }>('/api/v1/geo').then((r) => setFeatures(r.data)).catch(() => undefined);
@@ -71,7 +72,7 @@ export default function MapaPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
         <div className="lg:col-span-8">
-          <MapClient features={filtered} height="560px" />
+          <MapClient features={filtered} height="560px" focusFeatureId={focusId} />
         </div>
         <div className="lg:col-span-4 bg-white rounded-xl border border-[#d8e3df] shadow-sm p-4 max-h-[560px] flex flex-col">
           <h3 className="font-semibold text-[#0b3b60] text-sm mb-3 flex items-center gap-2">
@@ -82,11 +83,23 @@ export default function MapaPage() {
               <p className="text-xs text-slate-400 text-center py-8">Sin geometrías registradas.</p>
             ) : (
               filtered.map((f) => (
-                <div key={f.id} className="p-3 rounded-lg border border-[#d8e3df] bg-[#f8fbfa] text-xs space-y-1">
+                <div
+                  key={f.id}
+                  onClick={() => setFocusId(f.id)}
+                  className={`p-3 rounded-lg border text-xs space-y-1 cursor-pointer transition-colors ${
+                    focusId === f.id
+                      ? 'border-[#0b3b60] bg-emerald-50/60 shadow-sm'
+                      : 'border-[#d8e3df] bg-[#f8fbfa] hover:border-[#0e7490]'
+                  }`}
+                >
                   <div className="flex items-center justify-between gap-2">
                     <span className="font-bold text-[#0e7490]">{f.kind}</span>
                     {f.activityId && (
-                      <Link href={`/actividades/${f.activityId}`} className="text-[#146c43] font-semibold hover:underline">
+                      <Link
+                        href={`/actividades/${f.activityId}`}
+                        onClick={(e) => e.stopPropagation()}
+                        className="text-[#146c43] font-semibold hover:underline"
+                      >
                         Ver OT →
                       </Link>
                     )}
