@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import {
-  SafeAreaView,
   View,
   Text,
   TextInput,
@@ -11,7 +10,9 @@ import {
   Alert,
   ActivityIndicator,
   Linking,
+  Platform,
 } from 'react-native';
+import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import * as Crypto from 'expo-crypto';
 import {
@@ -30,7 +31,10 @@ import { NewActivityModal } from './src/components/NewActivityModal';
 
 type Tab = 'activities' | 'map' | 'sync';
 
-export default function App() {
+function AppContent() {
+  const insets = useSafeAreaInsets();
+  const topSafe = Math.max(insets.top, Platform.OS === 'android' ? 32 : 16);
+  const bottomSafe = Math.max(insets.bottom, Platform.OS === 'android' ? 48 : 16);
   const [ready, setReady] = useState(false);
   const [loggedIn, setLoggedIn] = useState(false);
   const [user, setUser] = useState<{ id: string; name: string; email: string; role: string; permissions: string[] } | null>(null);
@@ -282,7 +286,7 @@ export default function App() {
 
   if (!loggedIn) {
     return (
-      <SafeAreaView style={styles.loginContainer}>
+      <View style={[styles.loginContainer, { paddingTop: topSafe, paddingBottom: bottomSafe }]}>
         <StatusBar style="dark" />
         <View style={styles.loginCard}>
           <Text style={styles.brand}>TerrenoCNR Móvil</Text>
@@ -294,16 +298,16 @@ export default function App() {
             <Text style={styles.primaryTxt}>Ingresar</Text>
           </TouchableOpacity>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   // Activity Detail Screen
   if (selected) {
     return (
-      <SafeAreaView style={styles.container}>
+      <View style={styles.container}>
         <StatusBar style="light" />
-        <View style={styles.header}>
+        <View style={[styles.header, { paddingTop: topSafe + 8 }]}>
           <TouchableOpacity onPress={() => setSelected(null)}>
             <Text style={styles.headerLink}>← Volver</Text>
           </TouchableOpacity>
@@ -312,7 +316,7 @@ export default function App() {
             <Text style={styles.headerLink}>Guardar</Text>
           </TouchableOpacity>
         </View>
-        <ScrollView contentContainerStyle={{ padding: 14, gap: 14 }}>
+        <ScrollView contentContainerStyle={{ padding: 14, gap: 14, paddingBottom: bottomSafe + 24 }}>
           <View style={styles.card}>
             <View style={styles.rowBetween}>
               <Text style={styles.badge}>{selected.status}</Text>
@@ -411,7 +415,7 @@ export default function App() {
         </ScrollView>
 
         <GeoCaptureModal visible={showGeoModal} onSave={saveGeoFeature} onClose={() => setShowGeoModal(false)} />
-      </SafeAreaView>
+      </View>
     );
   }
 
@@ -426,9 +430,9 @@ export default function App() {
   });
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
       <StatusBar style="light" />
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: topSafe + 8 }]}>
         <Text style={styles.headerTitle}>TerrenoCNR</Text>
         <TouchableOpacity onPress={handleSync} disabled={syncing}>
           <Text style={styles.headerLink}>{syncing ? 'Sincronizando...' : `⟳ Sync (${pendingTotal})`}</Text>
@@ -546,7 +550,7 @@ export default function App() {
       )}
 
       {/* Bottom Tab Bar */}
-      <View style={styles.tabBar}>
+      <View style={[styles.tabBar, { paddingBottom: bottomSafe + 8 }]}>
         <TouchableOpacity onPress={() => setTab('activities')} style={styles.tabItem}>
           <Text style={[styles.tabTxt, tab === 'activities' && styles.tabTxtActive]}>📋 Actividades</Text>
         </TouchableOpacity>
@@ -559,7 +563,15 @@ export default function App() {
       </View>
 
       <NewActivityModal visible={showNewModal} types={types} onCreate={handleCreateActivity} onClose={() => setShowNewModal(false)} />
-    </SafeAreaView>
+    </View>
+  );
+}
+
+export default function App() {
+  return (
+    <SafeAreaProvider>
+      <AppContent />
+    </SafeAreaProvider>
   );
 }
 
