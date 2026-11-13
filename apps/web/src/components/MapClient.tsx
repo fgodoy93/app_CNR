@@ -13,6 +13,7 @@ export function MapClient(props: {
   height?: string;
   onSelectPoint?: (lat: number, lng: number) => void;
   focusFeatureId?: string | null;
+  focusCenter?: { lat: number; lng: number; zoom?: number } | null;
   draftPoints?: [number, number][];
   draftKind?: 'POINT' | 'LINE' | 'POLYGON';
 }) {

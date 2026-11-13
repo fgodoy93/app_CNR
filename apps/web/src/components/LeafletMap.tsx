@@ -26,6 +26,7 @@ export function LeafletMap({
   height = '480px',
   onSelectPoint,
   focusFeatureId,
+  focusCenter,
   draftPoints,
   draftKind,
 }: {
@@ -33,6 +34,7 @@ export function LeafletMap({
   height?: string;
   onSelectPoint?: (lat: number, lng: number) => void;
   focusFeatureId?: string | null;
+  focusCenter?: { lat: number; lng: number; zoom?: number } | null;
   draftPoints?: [number, number][];
   draftKind?: 'POINT' | 'LINE' | 'POLYGON';
 }) {
@@ -147,6 +149,12 @@ export function LeafletMap({
       layer.openPopup();
     }
   }, [focusFeatureId]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !focusCenter) return;
+    map.flyTo([focusCenter.lat, focusCenter.lng], focusCenter.zoom ?? 14, { duration: 0.6 });
+  }, [focusCenter]);
 
   useEffect(() => {
     const draftGroup = draftLayerRef.current;

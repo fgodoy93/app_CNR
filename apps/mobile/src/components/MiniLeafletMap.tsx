@@ -10,6 +10,9 @@ export function MiniLeafletMap({
   draftKind = 'POINT',
   centerLat = -33.4489,
   centerLng = -70.6693,
+  userLat = null,
+  userLng = null,
+  focusCoords = null,
   height = 200,
   onTapCoordinate,
 }: {
@@ -18,6 +21,9 @@ export function MiniLeafletMap({
   draftKind?: 'POINT' | 'LINE' | 'TRACK' | 'POLYGON';
   centerLat?: number | null;
   centerLng?: number | null;
+  userLat?: number | null;
+  userLng?: number | null;
+  focusCoords?: { lat: number; lng: number; zoom?: number } | null;
   height?: number;
   onTapCoordinate?: (lng: number, lat: number) => void;
 }) {
@@ -33,8 +39,9 @@ export function MiniLeafletMap({
       .filter(Boolean);
 
     const draftLatLngs = draftPoints.map(([lng, lat]) => [lat, lng]);
-    const cLat = typeof centerLat === 'number' ? centerLat : -33.4489;
-    const cLng = typeof centerLng === 'number' ? centerLng : -70.6693;
+    const cLat = focusCoords?.lat ?? (typeof userLat === 'number' ? userLat : typeof centerLat === 'number' ? centerLat : -33.4489);
+    const cLng = focusCoords?.lng ?? (typeof userLng === 'number' ? userLng : typeof centerLng === 'number' ? centerLng : -70.6693);
+    const initZoom = focusCoords?.zoom ?? (typeof userLat === 'number' ? 16 : 13);
 
     return `<!DOCTYPE html>
 <html>
@@ -54,14 +61,33 @@ export function MiniLeafletMap({
       border-radius: 5px;
       white-space: nowrap;
     }
+    .cnr-user-label {
+      background: #2563eb;
+      border: 1px solid #ffffff;
+      color: #ffffff;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 1px 5px;
+      border-radius: 5px;
+      white-space: nowrap;
+    }
   </style>
 </head>
 <body>
   <div id="map"></div>
   <script>
-    var map = L.map('map').setView([${cLat}, ${cLng}], 13);
+    var map = L.map('map').setView([${cLat}, ${cLng}], ${initZoom});
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
     var bounds = [];
+
+    var uLat = ${typeof userLat === 'number' ? userLat : 'null'};
+    var uLng = ${typeof userLng === 'number' ? userLng : 'null'};
+    if (uLat !== null && uLng !== null) {
+      L.circle([uLat, uLng], { radius: 45, color: '#2563eb', fillColor: '#3b82f6', fillOpacity: 0.15, weight: 1 }).addTo(map);
+      L.circleMarker([uLat, uLng], { radius: 7, color: '#ffffff', fillColor: '#2563eb', fillOpacity: 1, weight: 2.5 })
+        .addTo(map)
+        .bindTooltip('Mi ubicación', { permanent: true, direction: 'top', offset: [0, -8], className: 'cnr-user-label' });
+    }
 
     var feats = ${JSON.stringify(feats)};
     feats.forEach(function(f) {
@@ -96,7 +122,8 @@ export function MiniLeafletMap({
       }
     }
 
-    if (bounds.length > 0) {
+    var hasFocus = ${focusCoords ? 'true' : 'false'};
+    if (!hasFocus && bounds.length > 0) {
       map.fitBounds(bounds, { padding: [25, 25], maxZoom: 16 });
     }
 
@@ -108,7 +135,7 @@ export function MiniLeafletMap({
   </script>
 </body>
 </html>`;
-  }, [geoFeatures, draftPoints, draftKind, centerLat, centerLng]);
+  }, [geoFeatures, draftPoints, draftKind, centerLat, centerLng, userLat, userLng, focusCoords]);
 
   return (
     <View style={{ height, borderRadius: 10, overflow: 'hidden', borderWidth: 1, borderColor: COLORS.border }}>

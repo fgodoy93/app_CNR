@@ -1,6 +1,7 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Linking, FlatList } from 'react-native';
 import { WebView } from 'react-native-webview';
+import * as Location from 'expo-location';
 import { COLORS } from '../theme';
 
 interface MobileMapViewProps {
@@ -10,7 +11,21 @@ interface MobileMapViewProps {
 }
 
 export function MobileMapView({ activities, geoFeatures, onSelectActivity }: MobileMapViewProps) {
-  const [mode, setMode] = React.useState<'map' | 'list'>('map');
+  const [mode, setMode] = useState<'map' | 'list'>('map');
+  const [userPos, setUserPos] = useState<{ lat: number; lng: number } | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== 'granted') return;
+        const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+        setUserPos({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+      } catch {
+        // ignore if GPS unavailable
+      }
+    })();
+  }, []);
 
   const html = useMemo(() => {
     const actMarkers = activities
@@ -63,11 +78,20 @@ export function MobileMapView({ activities, geoFeatures, onSelectActivity }: Mob
 <body>
   <div id="map"></div>
   <script>
-    var map = L.map('map').setView([-33.4489, -70.6693], 6);
+    var map = L.map('map').setView([${userPos?.lat ?? -33.4489}, ${userPos?.lng ?? -70.6693}], ${userPos ? 13 : 6});
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
       attribution: '© OpenStreetMap'
     }).addTo(map);
+
+    var uLat = ${userPos ? userPos.lat : 'null'};
+    var uLng = ${userPos ? userPos.lng : 'null'};
+    if (uLat !== null && uLng !== null) {
+      L.circle([uLat, uLng], { radius: 60, color: '#2563eb', fillColor: '#3b82f6', fillOpacity: 0.15, weight: 1 }).addTo(map);
+      L.circleMarker([uLat, uLng], { radius: 7, color: '#ffffff', fillColor: '#2563eb', fillOpacity: 1, weight: 2.5 })
+        .addTo(map)
+        .bindTooltip('Mi ubicación', { permanent: true, direction: 'top', offset: [0, -8], className: 'cnr-map-label' });
+    }
 
     var bounds = [];
     var acts = ${JSON.stringify(actMarkers)};
@@ -110,7 +134,7 @@ export function MobileMapView({ activities, geoFeatures, onSelectActivity }: Mob
   </script>
 </body>
 </html>`;
-  }, [activities, geoFeatures]);
+  }, [activities, geoFeatures, userPos]);
 
   return (
     <View style={{ flex: 1 }}>

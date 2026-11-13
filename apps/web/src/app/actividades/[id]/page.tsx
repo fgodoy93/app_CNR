@@ -23,6 +23,9 @@ function ActividadDetailInner() {
   const [geoLabel, setGeoLabel] = useState('');
   const [latInput, setLatInput] = useState('');
   const [lngInput, setLngInput] = useState('');
+  const [searchZone, setSearchZone] = useState('');
+  const [searchingZone, setSearchingZone] = useState(false);
+  const [focusCenter, setFocusCenter] = useState<{ lat: number; lng: number; zoom?: number } | null>(null);
 
   const load = () => {
     api
@@ -171,6 +174,28 @@ function ActividadDetailInner() {
       load();
     } catch (e: any) {
       setError(e.message);
+    }
+  };
+
+  const searchAddressOnWebMap = async () => {
+    if (!searchZone.trim()) return;
+    setSearchingZone(true);
+    setError(null);
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&countrycodes=cl&limit=1&q=${encodeURIComponent(searchZone.trim())}`,
+      );
+      const data = (await res.json()) as { lat: string; lon: string; display_name?: string }[];
+      if (!data?.[0]) {
+        setError(`No se encontró "${searchZone}" en Chile.`);
+      } else {
+        setFocusCenter({ lat: Number(data[0].lat), lng: Number(data[0].lon), zoom: 14 });
+        setMsg(`Mapa centrado en: ${data[0].display_name || searchZone}`);
+      }
+    } catch {
+      setError('No se pudo buscar la dirección (revise su conexión).');
+    } finally {
+      setSearchingZone(false);
     }
   };
 
@@ -372,6 +397,24 @@ function ActividadDetailInner() {
               </div>
             </div>
 
+            <div className="flex gap-2">
+              <input
+                value={searchZone}
+                onChange={(e) => setSearchZone(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && searchAddressOnWebMap()}
+                placeholder="Buscar dirección, comuna o zona (ej. Talca, Rancagua)..."
+                className="flex-1 px-3 py-1.5 border border-[#d8e3df] rounded-lg text-xs bg-white"
+              />
+              <button
+                type="button"
+                onClick={searchAddressOnWebMap}
+                disabled={searchingZone}
+                className="px-3 py-1.5 bg-[#0b3b60] hover:bg-[#0f4c81] text-white rounded-lg text-xs font-semibold"
+              >
+                {searchingZone ? 'Buscando...' : 'Ir a zona'}
+              </button>
+            </div>
+
             <input
               value={geoLabel}
               onChange={(e) => setGeoLabel(e.target.value)}
@@ -383,6 +426,7 @@ function ActividadDetailInner() {
               features={detail.geoFeatures ?? []}
               height="280px"
               onSelectPoint={addMapPoint}
+              focusCenter={focusCenter}
               draftPoints={draftPoints}
               draftKind={drawKind}
             />

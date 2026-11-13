@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Modal, View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { Modal, View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ScrollView } from 'react-native';
 import * as Location from 'expo-location';
 import { closeRing, type Position } from '@terreno/shared';
 import { MiniLeafletMap } from './MiniLeafletMap';
@@ -30,6 +30,50 @@ export function GeoCaptureModal({
   const [points, setPoints] = useState<Position[]>([]);
   const [lastAcc, setLastAcc] = useState<number | null>(null);
   const [capturing, setCapturing] = useState(false);
+  const [userPos, setUserPos] = useState<{ lat: number; lng: number } | null>(null);
+  const [searchZone, setSearchZone] = useState('');
+  const [searching, setSearching] = useState(false);
+  const [focusCoords, setFocusCoords] = useState<{ lat: number; lng: number; zoom?: number } | null>(null);
+
+  const locateDevice = async () => {
+    try {
+      const { status: perm } = await Location.requestForegroundPermissionsAsync();
+      if (perm !== 'granted') return;
+      const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      const coords = { lat: pos.coords.latitude, lng: pos.coords.longitude, zoom: 16 };
+      setUserPos({ lat: coords.lat, lng: coords.lng });
+      setFocusCoords(coords);
+    } catch {
+      // ignore if GPS unavailable
+    }
+  };
+
+  useEffect(() => {
+    if (visible) {
+      void locateDevice();
+    }
+  }, [visible]);
+
+  const searchAddress = async () => {
+    if (!searchZone.trim()) return;
+    setSearching(true);
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&countrycodes=cl&limit=1&q=${encodeURIComponent(searchZone.trim())}`,
+        { headers: { 'User-Agent': 'TerrenoCNR-App/1.0' } },
+      );
+      const data = (await res.json()) as { lat: string; lon: string }[];
+      if (!data?.[0]) {
+        Alert.alert('Sin resultados', `No se encontró "${searchZone}" en Chile.`);
+      } else {
+        setFocusCoords({ lat: Number(data[0].lat), lng: Number(data[0].lon), zoom: 14 });
+      }
+    } catch {
+      Alert.alert('Sin conexión', 'La búsqueda de dirección requiere conexión a internet.');
+    } finally {
+      setSearching(false);
+    }
+  };
 
   if (!visible) return null;
 
@@ -85,7 +129,8 @@ export function GeoCaptureModal({
   return (
     <Modal visible={visible} animationType="slide" transparent>
       <View style={styles.overlay}>
-        <View style={styles.card}>
+        <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }} keyboardShouldPersistTaps="handled">
+          <View style={styles.card}>
           <Text style={styles.title}>Captura Georreferenciada GPS</Text>
 
           <View style={styles.kindRow}>
@@ -121,9 +166,29 @@ export function GeoCaptureModal({
             placeholder="Observaciones del punto o tramo..."
           />
 
+          <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
+            <TextInput
+              style={[styles.input, { flex: 1, paddingVertical: 7 }]}
+              value={searchZone}
+              onChangeText={setSearchZone}
+              placeholder="Buscar dirección o zona (ej. Talca, Rancagua)..."
+              returnKeyType="search"
+              onSubmitEditing={searchAddress}
+            />
+            <TouchableOpacity onPress={searchAddress} disabled={searching} style={styles.btnSec}>
+              <Text style={{ fontSize: 12, fontWeight: '700', color: COLORS.primary }}>{searching ? '...' : '🔍 Ir'}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={locateDevice} style={styles.btnSec}>
+              <Text style={{ fontSize: 12, fontWeight: '700', color: COLORS.green }}>🎯</Text>
+            </TouchableOpacity>
+          </View>
+
           <MiniLeafletMap
             draftPoints={points}
             draftKind={kind}
+            userLat={userPos?.lat ?? null}
+            userLng={userPos?.lng ?? null}
+            focusCoords={focusCoords}
             height={175}
             onTapCoordinate={(lng, lat) => {
               setPoints((prev) => (kind === 'POINT' ? [[lng, lat]] : [...prev, [lng, lat]]));
@@ -165,6 +230,7 @@ export function GeoCaptureModal({
             </TouchableOpacity>
           </View>
         </View>
+        </ScrollView>
       </View>
     </Modal>
   );
