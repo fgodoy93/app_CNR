@@ -7,6 +7,7 @@ import * as Crypto from 'expo-crypto';
 import { evaluateForm, type FormDefinition, type FormValues } from '@terreno/shared';
 import { QrScannerModal } from './QrScannerModal';
 import { SignatureModal } from './SignatureModal';
+import { AudioRecorderModal } from './AudioRecorderModal';
 
 export interface CapturedEvidence {
   id: string;
@@ -16,6 +17,7 @@ export interface CapturedEvidence {
   fileName?: string;
   mimeType?: string;
   note?: string;
+  transcript?: string;
   source?: string;
   lat?: number;
   lng?: number;
@@ -37,6 +39,7 @@ export function DynamicFormMobile({
 }) {
   const [qrField, setQrField] = useState<string | null>(null);
   const [sigField, setSigField] = useState<string | null>(null);
+  const [audioField, setAudioField] = useState<{ key: string; isSpeech: boolean } | null>(null);
   const state = evaluateForm(definition, values);
 
   const setVal = (k: string, v: unknown) => onChange({ ...state.values, [k]: v });
@@ -248,6 +251,24 @@ export function DynamicFormMobile({
               <TouchableOpacity onPress={() => setSigField(f.key)} style={styles.actionBtn}>
                 <Text style={styles.actionTxt}>✍️ Capturar Firma ({Array.isArray(val) ? val.length : 0})</Text>
               </TouchableOpacity>
+            ) : f.type === 'audio' ? (
+              <TouchableOpacity onPress={() => setAudioField({ key: f.key, isSpeech: false })} style={styles.actionBtn}>
+                <Text style={styles.actionTxt}>🎙️ Grabar Audio ({Array.isArray(val) ? val.length : 0})</Text>
+              </TouchableOpacity>
+            ) : f.type === 'speech' ? (
+              <View style={{ gap: 8 }}>
+                <TouchableOpacity onPress={() => setAudioField({ key: f.key, isSpeech: true })} style={styles.actionBtn}>
+                  <Text style={styles.actionTxt}>🎙️ Grabar Voz / Transcripción</Text>
+                </TouchableOpacity>
+                <TextInput
+                  style={[styles.input, { height: 80, textAlignVertical: 'top' }]}
+                  multiline
+                  editable={!disabled}
+                  value={val === undefined || val === null ? '' : String(val)}
+                  onChangeText={(t) => setVal(f.key, t)}
+                  placeholder="Dictado / transcripción de voz..."
+                />
+              </View>
             ) : f.type === 'geopoint' || f.type === 'geoline' || f.type === 'geopolygon' ? (
               <TouchableOpacity
                 onPress={() =>
@@ -262,13 +283,13 @@ export function DynamicFormMobile({
               </TouchableOpacity>
             ) : (
               <TextInput
-                style={[styles.input, (f.type === 'textarea' || f.type === 'speech') && { height: 80, textAlignVertical: 'top' }]}
-                multiline={f.type === 'textarea' || f.type === 'speech'}
+                style={[styles.input, f.type === 'textarea' && { height: 80, textAlignVertical: 'top' }]}
+                multiline={f.type === 'textarea'}
                 keyboardType={f.type === 'number' ? 'numeric' : 'default'}
                 editable={!disabled}
                 value={val === undefined || val === null ? '' : String(val)}
                 onChangeText={(t) => setVal(f.key, f.type === 'number' ? (t === '' ? undefined : Number(t)) : t)}
-                placeholder={f.type === 'speech' ? 'Dictado / transcripción de voz...' : f.placeholder}
+                placeholder={f.placeholder}
               />
             )}
           </View>
@@ -296,6 +317,38 @@ export function DynamicFormMobile({
           setSigField(null);
         }}
         onClose={() => setSigField(null)}
+      />
+
+      <AudioRecorderModal
+        visible={Boolean(audioField)}
+        initialTranscript={audioField?.isSpeech && typeof state.values[audioField.key] === 'string' ? String(state.values[audioField.key]) : ''}
+        onSave={(res) => {
+          if (audioField) {
+            const evId = Crypto.randomUUID();
+            onCaptureEvidence({
+              id: evId,
+              kind: 'AUDIO',
+              fieldKey: audioField.key,
+              fileUri: res.uri,
+              fileName: res.fileName,
+              mimeType: res.mimeType,
+              note: `Duración: ${res.durationSec}s`,
+              transcript: res.transcript,
+              source: 'recorder',
+              lat: res.lat,
+              lng: res.lng,
+              accuracy: res.accuracy,
+            });
+            if (audioField.isSpeech) {
+              if (res.transcript) setVal(audioField.key, res.transcript);
+            } else {
+              const cur = Array.isArray(state.values[audioField.key]) ? (state.values[audioField.key] as string[]) : [];
+              setVal(audioField.key, [...cur, evId]);
+            }
+          }
+          setAudioField(null);
+        }}
+        onClose={() => setAudioField(null)}
       />
     </View>
   );

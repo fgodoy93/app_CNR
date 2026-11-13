@@ -357,28 +357,51 @@ function ActividadDetailInner() {
                 <p className="text-sm text-slate-400">Sin evidencias adjuntas.</p>
               ) : (
                 detail.evidences.map((ev: any) => (
-                  <div key={ev.id} className="p-3 border border-slate-200 rounded-lg flex justify-between items-center text-sm">
-                    <div>
-                      <div className="font-medium">{ev.fileName || ev.kind}</div>
-                      <div className="text-xs text-slate-500">
-                        {new Date(ev.capturedAt).toLocaleString('es-CL')} · {ev.uploadedBy?.name || 'Usuario'} · SHA256: {ev.sha256?.slice(0, 12)}...
+                  <div key={ev.id} className="p-3 border border-slate-200 rounded-lg space-y-2 text-sm">
+                    <div className="flex justify-between items-center gap-2">
+                      <div>
+                        <div className="font-medium">
+                          {ev.kind === 'AUDIO' ? '🎙️ ' : ''}
+                          {ev.fileName || ev.kind}
+                        </div>
+                        <div className="text-xs text-slate-500">
+                          {new Date(ev.capturedAt).toLocaleString('es-CL')} · {ev.uploadedBy?.name || 'Usuario'} · SHA256: {ev.sha256?.slice(0, 12)}...
+                        </div>
                       </div>
+                      {ev.storageKey && (
+                        <a
+                          href={`${API_BASE}/api/v1/evidences/${ev.id}/file`}
+                          onClick={async (e) => {
+                            e.preventDefault();
+                            const res = await fetch(`${API_BASE}/api/v1/evidences/${ev.id}/file`, {
+                              headers: { Authorization: `Bearer ${getToken()}` },
+                            });
+                            const blob = await res.blob();
+                            const url = URL.createObjectURL(blob);
+                            if (ev.kind === 'AUDIO') {
+                              const audioEl = document.getElementById(`audio-${ev.id}`) as HTMLAudioElement | null;
+                              if (audioEl) {
+                                audioEl.src = url;
+                                audioEl.classList.remove('hidden');
+                                void audioEl.play();
+                                return;
+                              }
+                            }
+                            window.open(url, '_blank');
+                          }}
+                          className="text-[#0e7490] hover:underline text-xs font-medium shrink-0"
+                        >
+                          {ev.kind === 'AUDIO' ? 'Reproducir audio' : 'Ver archivo'}
+                        </a>
+                      )}
                     </div>
-                    {ev.storageKey && (
-                      <a
-                        href={`${API_BASE}/api/v1/evidences/${ev.id}/file`}
-                        onClick={async (e) => {
-                          e.preventDefault();
-                          const res = await fetch(`${API_BASE}/api/v1/evidences/${ev.id}/file`, {
-                            headers: { Authorization: `Bearer ${getToken()}` },
-                          });
-                          const blob = await res.blob();
-                          window.open(URL.createObjectURL(blob), '_blank');
-                        }}
-                        className="text-[#0e7490] hover:underline text-xs font-medium"
-                      >
-                        Ver archivo
-                      </a>
+                    {ev.kind === 'AUDIO' && (
+                      <audio id={`audio-${ev.id}`} controls className="w-full h-8 hidden" />
+                    )}
+                    {ev.transcript && (
+                      <div className="text-xs bg-slate-50 border border-slate-200 rounded p-2 text-slate-700">
+                        <span className="font-semibold text-[#0b3b60]">Transcripción:</span> {ev.transcript}
+                      </div>
                     )}
                   </div>
                 ))

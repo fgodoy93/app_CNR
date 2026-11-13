@@ -272,8 +272,8 @@ function AppContent() {
     if (!selected) return;
     const db = await getDb();
     await db.runAsync(
-      `INSERT INTO evidences (id, activityId, kind, fieldKey, fileUri, fileName, mimeType, note, source, lat, lng, accuracy, capturedAt, synced)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`,
+      `INSERT INTO evidences (id, activityId, kind, fieldKey, fileUri, fileName, mimeType, note, transcript, source, lat, lng, accuracy, capturedAt, synced)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`,
       [
         ev.id,
         selected.id,
@@ -283,6 +283,7 @@ function AppContent() {
         ev.fileName ?? null,
         ev.mimeType ?? null,
         ev.note ?? null,
+        ev.transcript ?? null,
         ev.source ?? 'mobile',
         ev.lat ?? null,
         ev.lng ?? null,
@@ -618,8 +619,10 @@ function AppContent() {
               actEvidences.map((ev) => (
                 <View key={ev.id} style={styles.subItem}>
                   <Text style={{ fontWeight: '600', fontSize: 12 }}>
+                    {ev.kind === 'AUDIO' ? '🎙️ ' : ''}
                     {ev.kind} · {ev.fileName || ev.source} {ev.synced ? '✓ Sincronizada' : '⏳ Pendiente'}
                   </Text>
+                  {ev.transcript ? <Text style={{ fontSize: 11, color: COLORS.text, marginTop: 2 }}>“{ev.transcript}”</Text> : null}
                   <Text style={styles.meta}>{new Date(ev.capturedAt).toLocaleString('es-CL')}</Text>
                 </View>
               ))

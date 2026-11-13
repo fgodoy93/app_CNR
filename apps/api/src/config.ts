@@ -37,6 +37,9 @@ const envSchema = z.object({
   /** comma separated emails that receive operational alerts (incidents, DLQ, errors) */
   ALERT_EMAILS: z.string().default(''),
   MAX_UPLOAD_MB: z.coerce.number().default(50),
+  STT_API_URL: z.string().url().optional(),
+  STT_API_KEY: z.string().optional(),
+  STT_MODEL: z.string().default('whisper-1'),
   LOG_LEVEL: z.string().default('info'),
   WORKERS_ENABLED: z
     .enum(['true', 'false'])

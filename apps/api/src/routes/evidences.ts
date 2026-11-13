@@ -6,7 +6,19 @@ import { prisma } from '../db';
 import { storage } from '../lib/storage';
 import { getActivityForActor } from '../services/activities';
 
-const SAFE_INLINE_MIMES = new Set(['image/jpeg', 'image/png', 'image/webp', 'application/pdf']);
+const SAFE_INLINE_MIMES = new Set([
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'application/pdf',
+  'audio/mp4',
+  'audio/m4a',
+  'audio/x-m4a',
+  'audio/mpeg',
+  'audio/ogg',
+  'audio/wav',
+  'audio/webm',
+]);
 
 export const evidencesRoutes: FastifyPluginAsync = async (app) => {
   app.addHook('preHandler', app.authenticate);

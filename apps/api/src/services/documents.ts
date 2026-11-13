@@ -122,6 +122,17 @@ function buildPdf(
     y += 12;
     doc.text(`• Evidencias y archivos adjuntos: ${activity.evidences.length}`, 40, y);
 
+    const audioTranscripts = activity.evidences.filter((e: any) => e.kind === 'AUDIO' && e.transcript);
+    if (audioTranscripts.length > 0) {
+      y += 14;
+      doc.fontSize(10).font('Helvetica-Bold').text('Transcripciones de notas de voz:', 40, y);
+      y += 13;
+      audioTranscripts.slice(0, 5).forEach((ev: any) => {
+        doc.fontSize(8).font('Helvetica').text(`• "${String(ev.transcript).slice(0, 180)}"`, 50, y, { width: 495 });
+        y += 14;
+      });
+    }
+
     if (activity.geoFeatures.length > 0) {
       y += 18;
       doc.fontSize(10).font('Helvetica-Bold').text('Puntos georreferenciados principales:', 40, y);
