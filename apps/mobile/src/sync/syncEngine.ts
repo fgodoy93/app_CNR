@@ -8,6 +8,17 @@ export interface SyncSummary {
   uploadedEvidences: number;
 }
 
+function uploadFormDataWithXhr(url: string, token: string | null, formData: FormData): Promise<boolean> {
+  return new Promise((resolve) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', url);
+    if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+    xhr.onload = () => resolve(xhr.status >= 200 && xhr.status < 300);
+    xhr.onerror = () => resolve(false);
+    xhr.send(formData as any);
+  });
+}
+
 export async function enqueueMutation(
   entity: 'activity' | 'geoFeature' | 'transition' | 'note',
   op: 'upsert' | 'delete' | 'execute',
@@ -95,7 +106,7 @@ export async function syncAll(): Promise<SyncSummary> {
         capturedAt: ev.capturedAt,
       }),
     );
-    if (ev.fileUri) {
+    if (ev.fileUri && (String(ev.fileUri).startsWith('file://') || String(ev.fileUri).startsWith('content://'))) {
       fd.append('file', {
         uri: ev.fileUri,
         name: ev.fileName || `${ev.id}.jpg`,
@@ -103,12 +114,8 @@ export async function syncAll(): Promise<SyncSummary> {
       } as any);
     }
 
-    const res = await fetch(`${base}/api/v1/evidences`, {
-      method: 'POST',
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-      body: fd,
-    });
-    if (res.ok) {
+    const ok = await uploadFormDataWithXhr(`${base}/api/v1/evidences`, token, fd);
+    if (ok) {
       await db.runAsync(`UPDATE evidences SET synced = 1 WHERE id = ?`, [ev.id]);
       uploadedEvidences++;
     }
