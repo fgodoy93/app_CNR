@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -10,10 +10,13 @@ import {
   Alert,
   ActivityIndicator,
   Platform,
+  AppState,
+  Switch,
 } from 'react-native';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import * as Crypto from 'expo-crypto';
+import * as Network from 'expo-network';
 import {
   DEFAULT_WORKFLOW,
   availableTransitions,
@@ -69,6 +72,11 @@ function AppContent() {
   const [showNewModal, setShowNewModal] = useState(false);
   const [showOtScanner, setShowOtScanner] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const [isOnline, setIsOnline] = useState(true);
+  const [networkType, setNetworkType] = useState('UNKNOWN');
+  const [autoSync, setAutoSync] = useState(true);
+  const [lastAutoSyncAt, setLastAutoSyncAt] = useState<string | null>(null);
+  const syncingRef = useRef(false);
 
   const refreshLocal = async () => {
     const db = await getDb();
@@ -109,22 +117,65 @@ function AppContent() {
     }
   };
 
-  const handleSync = async () => {
+  const handleSync = async (silent = false) => {
+    if (syncingRef.current) return;
+    syncingRef.current = true;
     setSyncing(true);
     try {
       const summary = await syncAll();
       await refreshLocal();
-      Alert.alert(
-        'Sincronización Completa',
-        `Actividades: ${summary.pulledActivities}\nMutaciones enviadas: ${summary.pushedMutations}\nEvidencias subidas: ${summary.uploadedEvidences}`,
-      );
+      setLastAutoSyncAt(new Date().toLocaleTimeString('es-CL'));
+      if (!silent) {
+        Alert.alert(
+          'Sincronización Completa',
+          `Actividades: ${summary.pulledActivities}\nMutaciones enviadas: ${summary.pushedMutations}\nEvidencias subidas: ${summary.uploadedEvidences}`,
+        );
+      }
     } catch (e: any) {
       await refreshLocal();
-      Alert.alert('Modo Sin Conexión (Offline)', `Los datos locales se mantienen seguros. (${e.message})`);
+      if (!silent) {
+        Alert.alert('Modo Sin Conexión (Offline)', `Los datos locales se mantienen seguros. (${e.message})`);
+      }
     } finally {
+      syncingRef.current = false;
       setSyncing(false);
     }
   };
+
+  useEffect(() => {
+    Network.getNetworkStateAsync()
+      .then((s) => {
+        setIsOnline(Boolean(s.isConnected && s.isInternetReachable !== false));
+        setNetworkType(String(s.type ?? 'UNKNOWN'));
+      })
+      .catch(() => undefined);
+
+    const netSub = Network.addNetworkStateListener((s) => {
+      const online = Boolean(s.isConnected && s.isInternetReachable !== false);
+      setIsOnline(online);
+      setNetworkType(String(s.type ?? 'UNKNOWN'));
+      if (online && autoSync && loggedIn) {
+        handleSync(true);
+      }
+    });
+
+    const appSub = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'active' && autoSync && loggedIn) {
+        Network.getNetworkStateAsync()
+          .then((s) => {
+            if (s.isConnected && s.isInternetReachable !== false) {
+              handleSync(true);
+            }
+          })
+          .catch(() => undefined);
+      }
+    });
+
+    return () => {
+      netSub.remove();
+      appSub.remove();
+    };
+  }, [autoSync, loggedIn]);
 
   const openActivity = async (act: any) => {
     const db = await getDb();
@@ -557,7 +608,7 @@ function AppContent() {
             <TouchableOpacity onPress={() => setShowOtScanner(true)} style={[styles.headerPill, { backgroundColor: COLORS.water }]}>
               <Text style={styles.headerPillTxt}>📷 QR OT</Text>
             </TouchableOpacity>
-            <TouchableOpacity onPress={handleSync} disabled={syncing} style={styles.headerPill}>
+            <TouchableOpacity onPress={() => handleSync(false)} disabled={syncing} style={styles.headerPill}>
               <Text style={styles.headerPillTxt}>{syncing ? 'Sincronizando...' : `⟳ Sync (${pendingTotal})`}</Text>
             </TouchableOpacity>
           </View>
@@ -662,10 +713,20 @@ function AppContent() {
             <Text style={styles.meta}>{user?.email} · Rol: {user?.role}</Text>
           </View>
           <View style={styles.card}>
-            <Text style={styles.sectionHeader}>Estado Cola Offline</Text>
+            <Text style={styles.sectionHeader}>Estado de Red y Sincronización</Text>
+            <Text style={{ fontSize: 13, fontWeight: '700', color: isOnline ? COLORS.green : COLORS.amber, marginBottom: 4 }}>
+              {isOnline ? `🟢 En línea (${networkType})` : '🟠 Sin conexión (Modo Offline)'}
+            </Text>
             <Text style={styles.meta}>Mutaciones en cola: {queueItems.length}</Text>
             <Text style={styles.meta}>Evidencias pendientes de subida: {pendingEvCount}</Text>
-            <TouchableOpacity onPress={handleSync} disabled={syncing} style={[styles.primaryBtn, { marginTop: 12 }]}>
+            {lastAutoSyncAt && <Text style={styles.meta}>Última sync: {lastAutoSyncAt}</Text>}
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 12, paddingTop: 10, borderTopWidth: 1, borderTopColor: '#eef3f1' }}>
+              <Text style={{ fontSize: 12, fontWeight: '600', color: COLORS.text, flex: 1 }}>
+                Auto-sincronizar al detectar Wi-Fi o Datos
+              </Text>
+              <Switch value={autoSync} onValueChange={setAutoSync} trackColor={{ true: COLORS.green }} />
+            </View>
+            <TouchableOpacity onPress={() => handleSync(false)} disabled={syncing} style={[styles.primaryBtn, { marginTop: 12 }]}>
               <Text style={styles.primaryTxt}>{syncing ? 'Sincronizando...' : 'Sincronizar Ahora'}</Text>
             </TouchableOpacity>
           </View>
