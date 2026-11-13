@@ -4,7 +4,15 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { AppShell } from '@/components/AppShell';
 import { api } from '@/lib/api';
-import { Plus, Search, MapPin, Paperclip } from 'lucide-react';
+import { Plus, Search, MapPin, Paperclip, LayoutList, Columns3 } from 'lucide-react';
+
+const KANBAN_COLS = [
+  { key: 'PENDIENTE', label: 'Pendiente', accent: 'border-t-slate-400', badge: 'bg-slate-100 text-slate-700' },
+  { key: 'ASIGNADA', label: 'Asignada', accent: 'border-t-sky-600', badge: 'bg-sky-50 text-sky-800' },
+  { key: 'EN_EJECUCION', label: 'En Ejecución', accent: 'border-t-amber-500', badge: 'bg-amber-50 text-amber-800' },
+  { key: 'EN_REVISION', label: 'En Revisión', accent: 'border-t-cyan-600', badge: 'bg-cyan-50 text-cyan-800' },
+  { key: 'CERRADA', label: 'Cerrada', accent: 'border-t-[#146c43]', badge: 'bg-emerald-50 text-[#146c43]' },
+];
 
 export default function ActividadesPage() {
   const [activities, setActivities] = useState<any[]>([]);
@@ -12,6 +20,7 @@ export default function ActividadesPage() {
   const [users, setUsers] = useState<any[]>([]);
   const [q, setQ] = useState('');
   const [status, setStatus] = useState('');
+  const [viewMode, setViewMode] = useState<'list' | 'kanban'>('list');
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState({ typeId: '', title: '', description: '', priority: 'MEDIA', assigneeId: '', address: '', lat: '', lng: '' });
   const [saving, setSaving] = useState(false);
@@ -92,15 +101,84 @@ export default function ActividadesPage() {
           </button>
         </div>
 
-        <button
-          onClick={() => setShowModal(true)}
-          className="inline-flex items-center gap-2 px-4 py-2 bg-[#0f4c81] hover:bg-blue-900 text-white text-sm font-medium rounded-lg shadow-sm"
-        >
-          <Plus className="w-4 h-4" />
-          Crear Orden / Inspección
-        </button>
+        <div className="flex items-center gap-2">
+          <div className="inline-flex rounded-lg border border-[#d8e3df] bg-white p-0.5">
+            <button
+              onClick={() => setViewMode('list')}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${
+                viewMode === 'list' ? 'bg-[#0b3b60] text-white' : 'text-slate-600 hover:bg-slate-50'
+              }`}
+            >
+              <LayoutList className="w-3.5 h-3.5" />
+              Listado
+            </button>
+            <button
+              onClick={() => setViewMode('kanban')}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${
+                viewMode === 'kanban' ? 'bg-[#146c43] text-white' : 'text-slate-600 hover:bg-slate-50'
+              }`}
+            >
+              <Columns3 className="w-3.5 h-3.5" />
+              Kanban
+            </button>
+          </div>
+          <button
+            onClick={() => setShowModal(true)}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-[#0b3b60] hover:bg-[#0f4c81] text-white text-sm font-medium rounded-lg shadow-sm"
+          >
+            <Plus className="w-4 h-4" />
+            Crear Orden / Inspección
+          </button>
+        </div>
       </div>
 
+      {viewMode === 'kanban' ? (
+        <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-5 gap-4 items-start">
+          {KANBAN_COLS.map((col) => {
+            const colItems = activities.filter((a) => a.status === col.key || (col.key === 'EN_REVISION' && a.status === 'EN_APROBACION'));
+            return (
+              <div key={col.key} className={`bg-[#f7faf9] rounded-xl border border-[#d8e3df] border-t-4 ${col.accent} p-3`}>
+                <div className="flex items-center justify-between mb-3">
+                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${col.badge}`}>{col.label}</span>
+                  <span className="text-xs font-bold text-slate-500">{colItems.length}</span>
+                </div>
+                <div className="space-y-2.5">
+                  {colItems.length === 0 ? (
+                    <div className="text-xs text-slate-400 text-center py-6 border border-dashed border-slate-200 rounded-lg">
+                      Sin actividades
+                    </div>
+                  ) : (
+                    colItems.map((a) => (
+                      <Link
+                        key={a.id}
+                        href={`/actividades/${a.id}`}
+                        className="block bg-white p-3 rounded-lg border border-[#d8e3df] shadow-sm hover:border-[#0b3b60] transition-colors"
+                      >
+                        <div className="flex items-center justify-between gap-1 mb-1">
+                          <span className="font-mono text-xs font-bold text-[#0e7490]">{a.folio}</span>
+                          <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                            a.priority === 'CRITICA' ? 'bg-red-100 text-red-700' :
+                            a.priority === 'ALTA' ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-600'
+                          }`}>{a.priority}</span>
+                        </div>
+                        <div className="text-xs font-semibold text-slate-800 line-clamp-2">{a.title}</div>
+                        <div className="text-[11px] text-slate-500 mt-1 truncate">{a.type?.name}</div>
+                        <div className="mt-2 h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                          <div className="h-1.5 bg-[#146c43] rounded-full" style={{ width: `${Math.min(100, a.progress ?? 0)}%` }} />
+                        </div>
+                        <div className="flex items-center justify-between mt-1.5 text-[10px] text-slate-500">
+                          <span className="truncate">{a.assignee?.name || 'Sin asignar'}</span>
+                          <span className="font-semibold">{a.progress ?? 0}%</span>
+                        </div>
+                      </Link>
+                    ))
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm text-left">
@@ -149,6 +227,7 @@ export default function ActividadesPage() {
           </table>
         </div>
       </div>
+      )}
 
       {showModal && (
         <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">

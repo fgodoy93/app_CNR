@@ -9,7 +9,6 @@ import {
   StyleSheet,
   Alert,
   ActivityIndicator,
-  Linking,
   Platform,
 } from 'react-native';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -29,9 +28,12 @@ import { DynamicFormMobile, type CapturedEvidence } from './src/components/Dynam
 import { GeoCaptureModal, type GeoKindChoice } from './src/components/GeoCaptureModal';
 import { NewActivityModal } from './src/components/NewActivityModal';
 import { GobStripe, BrandEmblem } from './src/components/GobBrand';
+import { MobileDashboard } from './src/components/MobileDashboard';
+import { MobileKanban } from './src/components/MobileKanban';
+import { MobileMapView } from './src/components/MobileMapView';
 import { COLORS, getStatusStyle } from './src/theme';
 
-type Tab = 'activities' | 'map' | 'sync';
+type Tab = 'dashboard' | 'activities' | 'map' | 'sync';
 
 function AppContent() {
   const insets = useSafeAreaInsets();
@@ -44,7 +46,8 @@ function AppContent() {
   const [email, setEmail] = useState('terreno@cnr.gob.cl');
   const [password, setPassword] = useState('Cnr2026!Demo');
 
-  const [tab, setTab] = useState<Tab>('activities');
+  const [tab, setTab] = useState<Tab>('dashboard');
+  const [actView, setActView] = useState<'list' | 'kanban'>('list');
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [activities, setActivities] = useState<any[]>([]);
@@ -296,7 +299,7 @@ function AppContent() {
             <View style={{ alignItems: 'center', gap: 6, marginBottom: 4 }}>
               <BrandEmblem size={48} />
               <Text style={styles.brand}>TerrenoCNR Móvil</Text>
-              <Text style={styles.sub}>Comisión Nacional de Riego · Ministerio del Medio Ambiente</Text>
+              <Text style={styles.sub}>Comisión Nacional de Riego · Ministerio de Agricultura</Text>
             </View>
             <TextInput style={styles.input} value={apiUrlInput} onChangeText={setApiUrlInput} placeholder="URL API" autoCapitalize="none" />
             <TextInput style={styles.input} value={email} onChangeText={setEmail} placeholder="Correo institucional" autoCapitalize="none" />
@@ -474,7 +477,7 @@ function AppContent() {
             <BrandEmblem size={30} />
             <View>
               <Text style={styles.headerTitle}>TerrenoCNR</Text>
-              <Text style={{ color: '#a7f3d0', fontSize: 10, fontWeight: '600' }}>CNR · Medio Ambiente</Text>
+              <Text style={{ color: '#a7f3d0', fontSize: 10, fontWeight: '600' }}>CNR · Min. Agricultura</Text>
             </View>
           </View>
           <TouchableOpacity onPress={handleSync} disabled={syncing} style={styles.headerPill}>
@@ -482,6 +485,20 @@ function AppContent() {
           </TouchableOpacity>
         </View>
       </View>
+
+      {tab === 'dashboard' && (
+        <MobileDashboard
+          activities={activities}
+          geoCount={allGeo.length}
+          pendingCount={pendingTotal}
+          onSelectActivity={openActivity}
+          onNewActivity={() => setShowNewModal(true)}
+          onGoKanban={() => {
+            setActView('kanban');
+            setTab('activities');
+          }}
+        />
+      )}
 
       {tab === 'activities' && (
         <View style={{ flex: 1 }}>
@@ -496,77 +513,67 @@ function AppContent() {
               <Text style={styles.smallPriTxt}>+ Nueva OT</Text>
             </TouchableOpacity>
           </View>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ maxHeight: 42, paddingHorizontal: 12 }}>
-            {['', 'ASIGNADA', 'EN_EJECUCION', 'EN_REVISION', 'CERRADA'].map((st) => (
-              <TouchableOpacity
-                key={st || 'ALL'}
-                onPress={() => setStatusFilter(st)}
-                style={[styles.filterChip, statusFilter === st && styles.filterChipActive]}
-              >
-                <Text style={[styles.filterTxt, statusFilter === st && { color: '#fff' }]}>{st || 'Todas'}</Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
 
-          <FlatList
-            data={filteredActivities}
-            keyExtractor={(item) => item.id}
-            contentContainerStyle={{ padding: 14, gap: 10 }}
-            ListEmptyComponent={<Text style={styles.empty}>No hay actividades. Presione Sync.</Text>}
-            renderItem={({ item }) => {
-              const st = getStatusStyle(item.status);
-              return (
-                <TouchableOpacity onPress={() => openActivity(item)} style={[styles.card, { borderLeftWidth: 4, borderLeftColor: st.border }]}>
-                  <View style={styles.rowBetween}>
-                    <Text style={styles.folio}>{item.folio}</Text>
-                    <Text style={[styles.badge, { backgroundColor: st.bg, color: st.fg }]}>{item.status}</Text>
-                  </View>
-                  <Text style={styles.cardTitle}>{item.title}</Text>
-                  <Text style={styles.meta}>
-                    {item.typeName} · {item.priority} · {item.progress}%
-                  </Text>
-                  {item.address ? <Text style={styles.meta}>📍 {item.address}</Text> : null}
-                </TouchableOpacity>
-              );
-            }}
-          />
+          <View style={{ flexDirection: 'row', gap: 8, paddingHorizontal: 12, marginBottom: 8 }}>
+            <TouchableOpacity
+              onPress={() => setActView('list')}
+              style={[styles.viewToggleBtn, actView === 'list' && styles.viewToggleActive]}
+            >
+              <Text style={[styles.viewToggleTxt, actView === 'list' && { color: '#fff' }]}>📋 Listado</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => setActView('kanban')}
+              style={[styles.viewToggleBtn, actView === 'kanban' && { backgroundColor: COLORS.green, borderColor: COLORS.green }]}
+            >
+              <Text style={[styles.viewToggleTxt, actView === 'kanban' && { color: '#fff' }]}>🗂️ Kanban</Text>
+            </TouchableOpacity>
+          </View>
+
+          {actView === 'kanban' ? (
+            <MobileKanban activities={filteredActivities} onSelectActivity={openActivity} />
+          ) : (
+            <>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ maxHeight: 42, paddingHorizontal: 12 }}>
+                {['', 'ASIGNADA', 'EN_EJECUCION', 'EN_REVISION', 'CERRADA'].map((st) => (
+                  <TouchableOpacity
+                    key={st || 'ALL'}
+                    onPress={() => setStatusFilter(st)}
+                    style={[styles.filterChip, statusFilter === st && styles.filterChipActive]}
+                  >
+                    <Text style={[styles.filterTxt, statusFilter === st && { color: '#fff' }]}>{st || 'Todas'}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+
+              <FlatList
+                data={filteredActivities}
+                keyExtractor={(item) => item.id}
+                contentContainerStyle={{ padding: 14, gap: 10 }}
+                ListEmptyComponent={<Text style={styles.empty}>No hay actividades. Presione Sync.</Text>}
+                renderItem={({ item }) => {
+                  const st = getStatusStyle(item.status);
+                  return (
+                    <TouchableOpacity onPress={() => openActivity(item)} style={[styles.card, { borderLeftWidth: 4, borderLeftColor: st.border }]}>
+                      <View style={styles.rowBetween}>
+                        <Text style={styles.folio}>{item.folio}</Text>
+                        <Text style={[styles.badge, { backgroundColor: st.bg, color: st.fg }]}>{item.status}</Text>
+                      </View>
+                      <Text style={styles.cardTitle}>{item.title}</Text>
+                      <Text style={styles.meta}>
+                        {item.typeName} · {item.priority} · {item.progress}%
+                      </Text>
+                      {item.address ? <Text style={styles.meta}>📍 {item.address}</Text> : null}
+                    </TouchableOpacity>
+                  );
+                }}
+              />
+            </>
+          )}
         </View>
       )}
 
       {tab === 'map' && (
-        <FlatList
-          data={allGeo}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={{ padding: 14, gap: 10 }}
-          ListEmptyComponent={<Text style={styles.empty}>Sin puntos o geometrías GPS capturadas localmente.</Text>}
-          renderItem={({ item }) => {
-            const geom = JSON.parse(item.geometry);
-            const firstPt =
-              geom.type === 'Point'
-                ? geom.coordinates
-                : geom.type === 'Polygon'
-                  ? geom.coordinates[0][0]
-                  : geom.coordinates[0];
-            return (
-              <View style={styles.card}>
-                <View style={styles.rowBetween}>
-                  <Text style={styles.folio}>{item.kind} · {item.label}</Text>
-                  <Text style={styles.meta}>{item.synced ? '✓ Sync' : '⏳ Local'}</Text>
-                </View>
-                <Text style={styles.meta}>
-                  Lat: {firstPt[1].toFixed(5)} · Lng: {firstPt[0].toFixed(5)} {item.accuracy ? `· ±${Math.round(item.accuracy)} m` : ''}
-                </Text>
-                {item.observations ? <Text style={styles.meta}>{item.observations}</Text> : null}
-                <TouchableOpacity
-                  onPress={() => Linking.openURL(`https://www.openstreetmap.org/?mlat=${firstPt[1]}&mlon=${firstPt[0]}#map=16/${firstPt[1]}/${firstPt[0]}`)}
-                  style={{ marginTop: 6 }}
-                >
-                  <Text style={{ color: '#0284c7', fontWeight: '700', fontSize: 12 }}>Abrir ubicación en Mapa →</Text>
-                </TouchableOpacity>
-              </View>
-            );
-          }}
-        />
+        <MobileMapView activities={activities} geoFeatures={allGeo} onSelectActivity={openActivity} />
       )}
 
       {tab === 'sync' && (
@@ -598,11 +605,14 @@ function AppContent() {
 
       {/* Bottom Tab Bar */}
       <View style={[styles.tabBar, { paddingBottom: bottomSafe + 8 }]}>
+        <TouchableOpacity onPress={() => setTab('dashboard')} style={[styles.tabItem, tab === 'dashboard' && styles.tabItemActive]}>
+          <Text style={[styles.tabTxt, tab === 'dashboard' && styles.tabTxtActive]}>📊 Panel</Text>
+        </TouchableOpacity>
         <TouchableOpacity onPress={() => setTab('activities')} style={[styles.tabItem, tab === 'activities' && styles.tabItemActive]}>
-          <Text style={[styles.tabTxt, tab === 'activities' && styles.tabTxtActive]}>📋 Actividades</Text>
+          <Text style={[styles.tabTxt, tab === 'activities' && styles.tabTxtActive]}>📋 OTs</Text>
         </TouchableOpacity>
         <TouchableOpacity onPress={() => setTab('map')} style={[styles.tabItem, tab === 'map' && styles.tabItemActive]}>
-          <Text style={[styles.tabTxt, tab === 'map' && styles.tabTxtActive]}>🗺️ GPS ({allGeo.length})</Text>
+          <Text style={[styles.tabTxt, tab === 'map' && styles.tabTxtActive]}>🗺️ Mapa</Text>
         </TouchableOpacity>
         <TouchableOpacity onPress={() => setTab('sync')} style={[styles.tabItem, tab === 'sync' && styles.tabItemActive]}>
           <Text style={[styles.tabTxt, tab === 'sync' && styles.tabTxtActive]}>🔄 Sync ({pendingTotal})</Text>
@@ -643,6 +653,9 @@ const styles = StyleSheet.create({
   headerPill: { backgroundColor: COLORS.green, paddingHorizontal: 11, paddingVertical: 6, borderRadius: 999 },
   headerPillTxt: { color: '#fff', fontSize: 12, fontWeight: '700' },
   toolbar: { flexDirection: 'row', gap: 8, padding: 12, alignItems: 'center' },
+  viewToggleBtn: { flex: 1, paddingVertical: 7, borderRadius: 8, borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.surface, alignItems: 'center' },
+  viewToggleActive: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
+  viewToggleTxt: { fontSize: 12, fontWeight: '700', color: COLORS.text },
   filterChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, backgroundColor: '#e2ebe7', marginRight: 6, height: 30 },
   filterChipActive: { backgroundColor: COLORS.primary },
   filterTxt: { fontSize: 11, fontWeight: '700', color: COLORS.text },

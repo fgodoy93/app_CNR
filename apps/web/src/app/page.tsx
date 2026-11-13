@@ -55,10 +55,10 @@ export default function LoginPage() {
               </div>
 
               <h2 className="text-xl font-bold leading-snug mb-3">
-                Plataforma de Gestión Hídrica y Ambiental en Terreno
+                Plataforma de Gestión Hídrica y Agrícola en Terreno
               </h2>
               <p className="text-xs text-blue-100 leading-relaxed">
-                Supervisión de obras de riego, levantamiento geoespacial y fiscalización ambiental para la Comisión Nacional de Riego y coordinación con el Ministerio del Medio Ambiente.
+                Supervisión de obras de riego, levantamiento geoespacial y fiscalización en terreno para la Comisión Nacional de Riego (CNR) del Ministerio de Agricultura.
               </p>
             </div>
 

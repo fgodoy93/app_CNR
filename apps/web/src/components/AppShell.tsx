@@ -74,7 +74,7 @@ export function AppShell({ title, children }: { title: string; children: React.R
             <BrandMark size={34} />
             <div>
               <div className="font-bold text-base tracking-tight leading-tight">TerrenoCNR</div>
-              <div className="text-[10px] text-emerald-300 font-medium">CNR · Medio Ambiente</div>
+              <div className="text-[10px] text-emerald-300 font-medium">CNR · Min. Agricultura</div>
             </div>
           </div>
           <button onClick={() => setMobileOpen(false)} className="lg:hidden text-white/80 hover:text-white">
@@ -133,7 +133,7 @@ export function AppShell({ title, children }: { title: string; children: React.R
           <div className="flex items-center gap-3">
             <span className="hidden sm:inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full bg-emerald-50 text-[#146c43] border border-emerald-200">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-              Red Hídrica & Ambiental
+              Red Hídrica · Minagri
             </span>
             <div className="relative">
             <button
