@@ -47,6 +47,17 @@ export function MobileMapView({ activities, geoFeatures, onSelectActivity }: Mob
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <style>
     html, body, #map { margin: 0; padding: 0; width: 100%; height: 100%; background: #e8f0ec; }
+    .cnr-map-label {
+      background: rgba(255,255,255,0.95);
+      border: 1px solid #0b3b60;
+      color: #0b3b60;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 6px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.18);
+      white-space: nowrap;
+    }
   </style>
 </head>
 <body>
@@ -68,18 +79,25 @@ export function MobileMapView({ activities, geoFeatures, onSelectActivity }: Mob
         fillColor: '#146c43',
         fillOpacity: 0.9,
         weight: 2
-      }).addTo(map).bindPopup('<b>' + a.folio + '</b><br/>' + a.title + '<br/><small>' + a.status + '</small>');
+      })
+        .addTo(map)
+        .bindPopup('<b>' + a.folio + '</b><br/>' + a.title + '<br/><small>' + a.status + '</small>')
+        .bindTooltip(a.folio, { permanent: true, direction: 'top', offset: [0, -8], className: 'cnr-map-label' });
     });
 
     var feats = ${JSON.stringify(features)};
     feats.forEach(function(f) {
       if (!f || !f.geometry) return;
+      var refTxt = (f.label || f.kind || '').slice(0, 24);
       var layer = L.geoJSON(f.geometry, {
         style: { color: '#0e7490', weight: 3, fillOpacity: 0.25 },
         pointToLayer: function(feat, latlng) {
           return L.circleMarker(latlng, { radius: 6, color: '#0e7490', fillColor: '#38bdf8', fillOpacity: 0.9 });
         }
-      }).addTo(map).bindPopup('<b>' + f.kind + '</b>: ' + f.label);
+      })
+        .addTo(map)
+        .bindPopup('<b>' + f.kind + '</b>: ' + f.label)
+        .bindTooltip(refTxt, { permanent: true, direction: 'top', offset: [0, -6], className: 'cnr-map-label' });
       try {
         var b = layer.getBounds();
         if (b && b.isValid()) { bounds.push(b.getSouthWest()); bounds.push(b.getNorthEast()); }

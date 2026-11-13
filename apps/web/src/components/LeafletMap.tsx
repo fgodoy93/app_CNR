@@ -68,6 +68,7 @@ export function LeafletMap({
     const bounds: L.LatLngExpression[] = [];
 
     for (const f of features) {
+      const refLabel = (f.label || f.activityFolio || f.code || f.kind).slice(0, 28);
       const popupHtml = `
         <div style="font-family:sans-serif;font-size:12px;min-width:180px">
           <strong>${f.code}</strong> ${f.label ? `· ${f.label}` : ''}<br/>
@@ -83,25 +84,29 @@ export function LeafletMap({
         const [lng, lat] = f.geometry.coordinates as [number, number];
         const marker = L.circleMarker([lat, lng], {
           radius: 8,
-          color: '#0f4c81',
-          fillColor: '#0284c7',
-          fillOpacity: 0.85,
+          color: '#0b3b60',
+          fillColor: '#146c43',
+          fillOpacity: 0.9,
           weight: 2,
-        }).bindPopup(popupHtml);
+        })
+          .bindPopup(popupHtml)
+          .bindTooltip(refLabel, { permanent: true, direction: 'top', offset: [0, -8], className: 'cnr-map-label' });
         marker.addTo(group);
         bounds.push([lat, lng]);
       } else if (f.geometry.type === 'LineString') {
         const latlngs = (f.geometry.coordinates as [number, number][]).map(([lng, lat]) => [lat, lng] as [number, number]);
-        L.polyline(latlngs, { color: f.kind === 'TRACK' ? '#f59e0b' : '#0284c7', weight: 4 })
+        L.polyline(latlngs, { color: f.kind === 'TRACK' ? '#d97706' : '#0e7490', weight: 4 })
           .bindPopup(popupHtml)
+          .bindTooltip(refLabel, { permanent: true, direction: 'center', className: 'cnr-map-label' })
           .addTo(group);
         bounds.push(...latlngs);
       } else if (f.geometry.type === 'Polygon') {
         const rings = (f.geometry.coordinates as [number, number][][]).map((ring) =>
           ring.map(([lng, lat]) => [lat, lng] as [number, number]),
         );
-        L.polygon(rings, { color: '#10b981', fillOpacity: 0.25, weight: 2 })
+        L.polygon(rings, { color: '#146c43', fillOpacity: 0.25, weight: 2 })
           .bindPopup(popupHtml)
+          .bindTooltip(refLabel, { permanent: true, direction: 'center', className: 'cnr-map-label' })
           .addTo(group);
         if (rings[0]) bounds.push(...rings[0]);
       }
