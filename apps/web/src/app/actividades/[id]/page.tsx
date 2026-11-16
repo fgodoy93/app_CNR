@@ -82,12 +82,18 @@ function ActividadDetailInner() {
     setError(null);
     setMsg(null);
     try {
+      if (detail?.formDefinition) {
+        await api.patch(`/api/v1/activities/${detail.activity.id}`, {
+          data: formValues,
+          baseVersion: detail.activity.version,
+        });
+      }
       await api.post(`/api/v1/activities/${detail.activity.id}/transitions`, {
         transition: transitionKey,
         comment: comment || undefined,
       });
       setComment('');
-      setMsg('Transición ejecutada.');
+      setMsg('Formulario guardado y transición ejecutada.');
       load();
     } catch (e: any) {
       setError(e.message);

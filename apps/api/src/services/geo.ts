@@ -92,6 +92,7 @@ export async function listGeoFeaturesForMap(actor: Actor) {
       accuracy: f.accuracy,
       capturedAt: f.capturedAt,
       capturedBy: f.capturedById,
+      activityId: f.activityId,
       activityFolio: act?.folio || '',
       activityTitle: act?.title || '',
       evidenceCount: f.evidences.length,

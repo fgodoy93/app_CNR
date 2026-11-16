@@ -32,6 +32,7 @@ export function DynamicFormMobile({
   onCaptureEvidence,
   onCaptureGeo,
   onOpenGeoMap,
+  missingKeys = [],
 }: {
   definition: FormDefinition;
   values: FormValues;
@@ -39,6 +40,7 @@ export function DynamicFormMobile({
   onCaptureEvidence: (ev: CapturedEvidence) => void;
   onCaptureGeo: (kind: 'POINT' | 'LINE' | 'POLYGON' | 'TRACK', coords: [number, number], accuracy?: number | null) => void;
   onOpenGeoMap?: (kind: 'POINT' | 'LINE' | 'POLYGON' | 'TRACK') => void;
+  missingKeys?: string[];
 }) {
   const [qrField, setQrField] = useState<string | null>(null);
   const [sigField, setSigField] = useState<string | null>(null);
@@ -157,12 +159,20 @@ export function DynamicFormMobile({
         const val = state.values[f.key];
         const req = state.required[f.key];
         const disabled = state.disabled[f.key];
+        const isMissing = missingKeys.includes(f.key);
 
         return (
-          <View key={f.key} style={styles.field}>
-            <Text style={styles.label}>
+          <View
+            key={f.key}
+            style={[
+              styles.field,
+              isMissing && { borderWidth: 1, borderColor: '#dc2626', backgroundColor: '#fef2f2', borderRadius: 10, padding: 8 },
+            ]}
+          >
+            <Text style={[styles.label, isMissing && { color: '#b91c1c' }]}>
               {f.label}
               {req ? <Text style={{ color: '#dc2626' }}> *</Text> : null}
+              {isMissing ? <Text style={{ color: '#dc2626', fontSize: 11 }}> (Obligatorio)</Text> : null}
             </Text>
 
             {f.type === 'select' || f.type === 'radio' ? (

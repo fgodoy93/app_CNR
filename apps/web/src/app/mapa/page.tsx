@@ -19,6 +19,7 @@ const KINDS = [
 export default function MapaPage() {
   const [features, setFeatures] = useState<any[]>([]);
   const [kindFilter, setKindFilter] = useState('');
+  const [q, setQ] = useState('');
   const [focusId, setFocusId] = useState<string | null>(null);
   const [searchAddr, setSearchAddr] = useState('');
   const [focusCenter, setFocusCenter] = useState<{ lat: number; lng: number; zoom?: number } | null>(null);
@@ -27,7 +28,17 @@ export default function MapaPage() {
     api.get<{ data: any[] }>('/api/v1/geo').then((r) => setFeatures(r.data)).catch(() => undefined);
   }, []);
 
-  const filtered = kindFilter ? features.filter((f) => f.kind === kindFilter) : features;
+  const filtered = features.filter((f) => {
+    if (kindFilter && f.kind !== kindFilter) return false;
+    if (!q.trim()) return true;
+    const needle = q.trim().toLowerCase();
+    return (
+      f.activityFolio?.toLowerCase().includes(needle) ||
+      f.activityTitle?.toLowerCase().includes(needle) ||
+      f.label?.toLowerCase().includes(needle) ||
+      f.code?.toLowerCase().includes(needle)
+    );
+  });
 
   return (
     <AppShell title="Visualización Cartográfica y Exportación GPS">
@@ -73,12 +84,20 @@ export default function MapaPage() {
         </div>
       </div>
 
-      <div className="mb-4 max-w-md">
-        <AddressAutocomplete
-          value={searchAddr}
-          onChange={setSearchAddr}
-          onSelect={(item) => setFocusCenter({ lat: item.lat, lng: item.lng, zoom: 14 })}
-          placeholder="Buscar dirección, comuna o zona en el mapa..."
+      <div className="mb-4 flex flex-wrap gap-3 items-center">
+        <div className="flex-1 min-w-[240px] max-w-md">
+          <AddressAutocomplete
+            value={searchAddr}
+            onChange={setSearchAddr}
+            onSelect={(item) => setFocusCenter({ lat: item.lat, lng: item.lng, zoom: 14 })}
+            placeholder="Buscar dirección, comuna o zona en el mapa..."
+          />
+        </div>
+        <input
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="Filtrar por folio OT, título o etiqueta..."
+          className="flex-1 min-w-[220px] max-w-xs px-3 py-2 border border-[#d8e3df] rounded-lg text-sm bg-white"
         />
       </div>
 
@@ -105,7 +124,9 @@ export default function MapaPage() {
                   }`}
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <span className="font-bold text-[#0e7490]">{f.kind}</span>
+                    <span className="font-bold text-[#0e7490]">
+                      {f.kind} {f.activityFolio ? `· ${f.activityFolio}` : ''}
+                    </span>
                     {f.activityId && (
                       <Link
                         href={`/actividades/${f.activityId}`}

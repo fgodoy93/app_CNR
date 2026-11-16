@@ -13,15 +13,19 @@ import {
   AppState,
   Switch,
   Image,
+  Linking,
+  Modal,
 } from 'react-native';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import * as Crypto from 'expo-crypto';
 import * as Network from 'expo-network';
 import * as Location from 'expo-location';
+import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import {
   DEFAULT_WORKFLOW,
   availableTransitions,
+  evaluateForm,
   type FormDefinition,
   type WorkflowDefinition,
   type WorkflowTransition,
@@ -41,6 +45,19 @@ import { MiniLeafletMap } from './src/components/MiniLeafletMap';
 import { COLORS, getStatusStyle } from './src/theme';
 
 type Tab = 'dashboard' | 'activities' | 'map' | 'sync';
+
+function AudioPlayButton({ uri }: { uri: string }) {
+  const player = useAudioPlayer({ uri });
+  const status = useAudioPlayerStatus(player);
+  return (
+    <TouchableOpacity
+      onPress={() => (status.playing ? player.pause() : player.play())}
+      style={{ backgroundColor: COLORS.water, borderRadius: 6, paddingHorizontal: 10, paddingVertical: 5, alignSelf: 'flex-start', marginTop: 4 }}
+    >
+      <Text style={{ color: '#fff', fontSize: 11, fontWeight: '700' }}>{status.playing ? '⏸ Pausar' : '▶ Escuchar'}</Text>
+    </TouchableOpacity>
+  );
+}
 
 function AppContent() {
   const insets = useSafeAreaInsets();
@@ -81,6 +98,8 @@ function AppContent() {
   const [lastAutoSyncAt, setLastAutoSyncAt] = useState<string | null>(null);
   const [devicePos, setDevicePos] = useState<{ lat: number; lng: number } | null>(null);
   const [detailFocus, setDetailFocus] = useState<{ lat: number; lng: number; zoom?: number } | null>(null);
+  const [previewPhotoUri, setPreviewPhotoUri] = useState<string | null>(null);
+  const [missingKeys, setMissingKeys] = useState<string[]>([]);
   const syncingRef = useRef(false);
   const selectedIdRef = useRef<string | null>(null);
   selectedIdRef.current = selected?.id ?? null;
@@ -243,6 +262,7 @@ function AppContent() {
 
     setActGeo(await db.getAllAsync<any>(`SELECT * FROM geo_features WHERE activityId = ? ORDER BY capturedAt DESC`, [act.id]));
     setActEvidences(await db.getAllAsync<any>(`SELECT * FROM evidences WHERE activityId = ? ORDER BY capturedAt DESC`, [act.id]));
+    setMissingKeys([]);
     setDetailFocus(null);
     void locateDeviceForDetail();
   };
@@ -280,22 +300,53 @@ function AppContent() {
     if (tr.requireComment && !transitionComment.trim()) {
       return Alert.alert('Comentario requerido', 'Ingrese una observación para ejecutar esta transición.');
     }
+    if (formDef && ['EN_REVISION', 'APROBADA', 'CERRADA'].includes(tr.to)) {
+      const evaluated = evaluateForm(formDef, formData);
+      const missing = formDef.fields.filter((f) => {
+        if (!evaluated.visible[f.key] || !evaluated.required[f.key]) return false;
+        const v = evaluated.values[f.key];
+        return v === undefined || v === null || v === '' || (Array.isArray(v) && v.length === 0);
+      });
+      if (missing.length > 0) {
+        setMissingKeys(missing.map((m) => m.key));
+        return Alert.alert(
+          'Campos obligatorios pendientes',
+          `Complete antes de avanzar:\n• ${missing.map((m) => m.label).join('\n• ')}`,
+        );
+      }
+    }
+    setMissingKeys([]);
     const db = await getDb();
     const now = new Date().toISOString();
-    await db.runAsync(`UPDATE activities SET status = ?, updatedAt = ? WHERE id = ?`, [tr.to, now, selected.id]);
+    // Auto-save form progress before transitioning
+    await db.runAsync(`UPDATE activities SET data = ?, status = ?, updatedAt = ? WHERE id = ?`, [
+      JSON.stringify(formData),
+      tr.to,
+      now,
+      selected.id,
+    ]);
+    const savePayload: Record<string, unknown> = { data: formData, baseVersion: selected.version };
+    if (String(selected.folio || '').startsWith('LOCAL-')) {
+      savePayload.typeId = selected.typeId;
+      savePayload.title = selected.title;
+      savePayload.description = selected.description || null;
+      savePayload.priority = selected.priority;
+      savePayload.address = selected.address || null;
+    }
+    await enqueueMutation('activity', 'upsert', selected.id, savePayload);
     await enqueueMutation('transition', 'execute', selected.id, {
       activityId: selected.id,
       transition: tr.key,
       comment: transitionComment.trim() || undefined,
     });
     setTransitionComment('');
-    const updated = { ...selected, status: tr.to, updatedAt: now };
+    const updated = { ...selected, data: JSON.stringify(formData), status: tr.to, updatedAt: now };
     await refreshLocal();
     await openActivity(updated);
     if (isOnline && autoSync) {
       void handleSync(true);
     }
-    Alert.alert('Estado Actualizado', `La actividad pasó a ${tr.to}.`);
+    Alert.alert('Estado Actualizado', `Formulario guardado y actividad actualizada a ${tr.to}.`);
   };
 
   const handleCaptureEvidence = async (ev: CapturedEvidence) => {
@@ -562,6 +613,14 @@ function AppContent() {
             </View>
             <Text style={styles.cardTitle}>{selected.title}</Text>
             {selected.address ? <Text style={styles.meta}>📍 {selected.address}</Text> : null}
+            {typeof selected.lat === 'number' && typeof selected.lng === 'number' ? (
+              <TouchableOpacity
+                onPress={() => Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${selected.lat},${selected.lng}`)}
+                style={{ alignSelf: 'flex-start', backgroundColor: '#e0f2fe', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8, marginTop: 4 }}
+              >
+                <Text style={{ color: '#0369a1', fontWeight: '700', fontSize: 11 }}>🧭 Cómo llegar (Maps)</Text>
+              </TouchableOpacity>
+            ) : null}
             <View style={styles.progressTrack}>
               <View style={[styles.progressFill, { width: `${Math.min(100, Math.max(0, Number(selected.progress) || 0))}%` }]} />
             </View>
@@ -645,9 +704,13 @@ function AppContent() {
               <DynamicFormMobile
                 definition={formDef}
                 values={formData}
-                onChange={setFormData}
+                onChange={(next) => {
+                  setFormData(next);
+                  if (missingKeys.length > 0) setMissingKeys([]);
+                }}
                 onCaptureEvidence={handleCaptureEvidence}
                 onOpenGeoMap={() => setShowGeoModal(true)}
+                missingKeys={missingKeys}
                 onCaptureGeo={(kind, coords, accuracy) =>
                   saveGeoFeature({
                     kind,
@@ -671,7 +734,9 @@ function AppContent() {
               actEvidences.map((ev) => (
                 <View key={ev.id} style={[styles.subItem, { flexDirection: 'row', alignItems: 'center', gap: 10 }]}>
                   {ev.kind === 'PHOTO' && ev.fileUri ? (
-                    <Image source={{ uri: ev.fileUri }} style={{ width: 46, height: 46, borderRadius: 6, backgroundColor: '#e2e8f0' }} />
+                    <TouchableOpacity onPress={() => setPreviewPhotoUri(ev.fileUri)}>
+                      <Image source={{ uri: ev.fileUri }} style={{ width: 46, height: 46, borderRadius: 6, backgroundColor: '#e2e8f0' }} />
+                    </TouchableOpacity>
                   ) : null}
                   <View style={{ flex: 1 }}>
                     <Text style={{ fontWeight: '600', fontSize: 12 }}>
@@ -679,6 +744,7 @@ function AppContent() {
                       {ev.kind} · {ev.fileName || ev.source} {ev.synced ? '✓ Sincronizada' : '⏳ Pendiente'}
                     </Text>
                     {ev.transcript ? <Text style={{ fontSize: 11, color: COLORS.text, marginTop: 2 }}>“{ev.transcript}”</Text> : null}
+                    {ev.kind === 'AUDIO' && ev.fileUri ? <AudioPlayButton uri={ev.fileUri} /> : null}
                     <Text style={styles.meta}>{new Date(ev.capturedAt).toLocaleString('es-CL')}</Text>
                   </View>
                 </View>
@@ -692,6 +758,19 @@ function AppContent() {
         </ScrollView>
 
         <GeoCaptureModal visible={showGeoModal} onSave={saveGeoFeature} onClose={() => setShowGeoModal(false)} />
+        <Modal visible={Boolean(previewPhotoUri)} transparent animationType="fade" onRequestClose={() => setPreviewPhotoUri(null)}>
+          <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.92)', justifyContent: 'center', alignItems: 'center', padding: 16 }}>
+            {previewPhotoUri && (
+              <Image source={{ uri: previewPhotoUri }} style={{ width: '100%', height: '80%' }} resizeMode="contain" />
+            )}
+            <TouchableOpacity
+              onPress={() => setPreviewPhotoUri(null)}
+              style={{ marginTop: 16, backgroundColor: '#fff', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 20 }}
+            >
+              <Text style={{ color: COLORS.primary, fontWeight: '800' }}>Cerrar Vista Previa</Text>
+            </TouchableOpacity>
+          </View>
+        </Modal>
       </View>
     );
   }

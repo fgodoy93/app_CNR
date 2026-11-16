@@ -180,7 +180,12 @@ export function MobileMapView({ activities, geoFeatures, onSelectActivity }: Mob
                   Lat: {firstPt[1].toFixed(5)} · Lng: {firstPt[0].toFixed(5)} {item.accuracy ? `· ±${Math.round(item.accuracy)} m` : ''}
                 </Text>
                 {item.observations ? <Text style={styles.meta}>{item.observations}</Text> : null}
-                <View style={{ flexDirection: 'row', gap: 14, marginTop: 8 }}>
+                <View style={{ flexDirection: 'row', gap: 14, marginTop: 8, flexWrap: 'wrap' }}>
+                  <TouchableOpacity
+                    onPress={() => Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${firstPt[1]},${firstPt[0]}`)}
+                  >
+                    <Text style={{ color: COLORS.primary, fontWeight: '700', fontSize: 12 }}>🧭 Cómo llegar</Text>
+                  </TouchableOpacity>
                   <TouchableOpacity
                     onPress={() => Linking.openURL(`https://www.openstreetmap.org/?mlat=${firstPt[1]}&mlon=${firstPt[0]}#map=16/${firstPt[1]}/${firstPt[0]}`)}
                   >
