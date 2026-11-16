@@ -93,13 +93,29 @@ export const activitiesRoutes: FastifyPluginAsync = async (app) => {
       select: { id: true },
     });
     const evIds = allEvRows.map((e) => e.id);
-    const evidenceAuditLogs = evIds.length
-      ? await prisma.auditLog.findMany({
-          where: { entity: 'evidence', entityId: { in: evIds } },
-          orderBy: { createdAt: 'desc' },
-          take: 50,
-        })
-      : [];
+    const geoIds = geoFeatures.map((g) => g.id);
+
+    const [evidenceAuditLogs, auditLogs] = await Promise.all([
+      evIds.length
+        ? prisma.auditLog.findMany({
+            where: { entity: 'evidence', entityId: { in: evIds } },
+            orderBy: { createdAt: 'desc' },
+            take: 50,
+          })
+        : Promise.resolve([]),
+      prisma.auditLog.findMany({
+        where: {
+          OR: [
+            { entity: 'activity', entityId: act.id },
+            ...(evIds.length ? [{ entity: 'evidence', entityId: { in: evIds } }] : []),
+            ...(geoIds.length ? [{ entity: 'geoFeature', entityId: { in: geoIds } }] : []),
+            { changes: { path: ['meta', 'activityId'], equals: act.id } },
+          ],
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 100,
+      }),
+    ]);
 
     return {
       activity: serializeActivity(act),
@@ -112,6 +128,7 @@ export const activitiesRoutes: FastifyPluginAsync = async (app) => {
       documents,
       comments,
       evidenceAuditLogs,
+      auditLogs,
     };
   });
 

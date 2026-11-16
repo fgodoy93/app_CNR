@@ -1,6 +1,7 @@
 import { prisma } from '../db';
 import { activityScope, getActivityForActor } from './activities';
 import { nextGeoCode } from '../lib/folio';
+import { audit } from '../lib/audit';
 import { validateGeometry, type GeoKind, type Geometry } from '@terreno/shared';
 import { badRequest, notFound } from '../lib/errors';
 import type { Actor } from '../types';
@@ -34,7 +35,7 @@ export async function addGeoFeature(
 
   return prisma.$transaction(async (tx) => {
     const code = await nextGeoCode(tx, input.kind);
-    return tx.geoFeature.create({
+    const created = await tx.geoFeature.create({
       data: {
         id: input.id,
         code,
@@ -52,6 +53,18 @@ export async function addGeoFeature(
         capturedById: actor.userId,
       },
     });
+    await audit(
+      actor,
+      'geoFeature',
+      created.id,
+      'create',
+      {
+        after: { code: created.code, kind: created.kind, label: created.label, accuracy: created.accuracy },
+        meta: { activityId: input.activityId },
+      },
+      tx,
+    );
+    return created;
   });
 }
 
@@ -105,11 +118,25 @@ export async function deleteGeoFeature(actor: Actor, id: string) {
   if (!existing) throw notFound('Geometría no encontrada');
   await getActivityForActor(actor, existing.activityId);
   await prisma.geoFeature.delete({ where: { id } });
+  await audit(actor, 'geoFeature', id, 'delete', {
+    before: { code: existing.code, kind: existing.kind, label: existing.label, observations: existing.observations },
+    meta: { activityId: existing.activityId },
+  });
   return { ok: true };
 }
 
 export async function clearActivityGeoFeatures(actor: Actor, activityId: string) {
   await getActivityForActor(actor, activityId);
+  const existing = await prisma.geoFeature.findMany({
+    where: { activityId },
+    select: { id: true, code: true, kind: true, label: true },
+  });
   const res = await prisma.geoFeature.deleteMany({ where: { activityId } });
+  if (res.count > 0) {
+    await audit(actor, 'geoFeature', activityId, 'delete_all', {
+      before: { count: res.count, items: existing.map((x) => `${x.code} (${x.kind}: ${x.label || 'Sin etiqueta'})`) },
+      meta: { activityId },
+    });
+  }
   return { ok: true, deleted: res.count };
 }

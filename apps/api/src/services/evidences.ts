@@ -105,6 +105,17 @@ export async function createEvidence(
     },
   });
 
+  await audit(actor, 'evidence', created.id, 'create', {
+    after: {
+      kind: created.kind,
+      fileName: created.fileName,
+      fieldKey: created.fieldKey,
+      transcript: created.transcript,
+      note: created.kind === 'SIGNATURE' ? '[Firma SVG]' : created.note,
+    },
+    meta: { activityId: input.activityId },
+  });
+
   if (input.kind === 'AUDIO' && !input.transcript && fileBuffer && fileBuffer.length > 0) {
     void transcribeAudioAsync(
       created.id,

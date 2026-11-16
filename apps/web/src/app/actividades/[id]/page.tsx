@@ -6,6 +6,7 @@ import { useParams } from 'next/navigation';
 import { AppShell } from '@/components/AppShell';
 import { DynamicFormRenderer } from '@/components/DynamicFormRenderer';
 import { SignaturePreview } from '@/components/SignaturePreview';
+import { AuditDiffView } from '@/components/AuditDiffView';
 import { MapClient } from '@/components/MapClient';
 import { api, API_BASE, getToken } from '@/lib/api';
 import { closeRing, type Position } from '@terreno/shared';
@@ -285,6 +286,10 @@ function ActividadDetailInner() {
             <h2 className="text-xl font-bold text-[#0f241d]">{a.title}</h2>
             <p className="text-sm text-slate-500 mt-1">
               Proceso: {a.type?.name} · Unidad: {a.unit?.name || 'General'} · Asignado a: {a.assignee?.name || 'Sin asignar'}
+            </p>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Creada: {new Date(a.createdAt).toLocaleString('es-CL')} · Por: <b>{a.createdBy?.name || 'Sistema'}</b>
+              {a.updatedAt ? ` · Última actualización: ${new Date(a.updatedAt).toLocaleString('es-CL')}` : ''}
             </p>
             <div className="mt-3 max-w-md flex items-center gap-3">
               <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
@@ -714,31 +719,24 @@ function ActividadDetailInner() {
           </div>
 
           <div>
-            <h3 className="font-semibold text-slate-800 mb-3">Historial de Aprobaciones y Trazabilidad</h3>
-            <div className="space-y-2 max-h-60 overflow-y-auto">
+            <h3 className="font-semibold text-[#006fb3] mb-3">Historial de Aprobaciones y Trazabilidad</h3>
+            <div className="space-y-2.5 max-h-80 overflow-y-auto pr-1">
               {(detail.transitionHistory ?? []).map((t: any) => (
-                <div key={t.id} className="text-xs border-l-2 border-blue-600 pl-3 py-1">
+                <div key={t.id} className="text-xs border-l-2 border-violet-600 pl-3 py-1">
                   <div className="font-semibold text-slate-800">
                     {t.label} ({t.fromStatus} → {t.toStatus}) {t.approvalLevel ? `· Nivel ${t.approvalLevel}` : ''}
                   </div>
                   <div className="text-slate-500">
-                    {new Date(t.createdAt).toLocaleString('es-CL')} · {t.user?.name || 'Sistema'}
+                    {new Date(t.createdAt).toLocaleString('es-CL')} · Usuario: <b>{t.user?.name || 'Sistema'}</b>
                     {t.comment ? ` — "${t.comment}"` : ''}
                   </div>
                 </div>
               ))}
-              {(detail.evidenceAuditLogs ?? []).map((log: any) => (
-                <div key={log.id} className="text-xs border-l-2 border-amber-500 pl-3 py-1">
-                  <div className="font-semibold text-slate-800">
-                    Evidencia {log.action === 'delete' ? 'eliminada' : 'editada'}
-                  </div>
-                  <div className="text-slate-500">
-                    {new Date(log.createdAt).toLocaleString('es-CL')} · {log.actorName || 'Usuario'}
-                  </div>
-                </div>
+              {(detail.auditLogs ?? []).map((log: any) => (
+                <AuditDiffView key={log.id} log={log} />
               ))}
             </div>
-            </div>
+          </div>
           </div>
         </div>
       </div>
