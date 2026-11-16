@@ -8,6 +8,7 @@ import { evaluateForm, type FormDefinition, type FormValues } from '@terreno/sha
 import { QrScannerModal } from './QrScannerModal';
 import { SignatureModal } from './SignatureModal';
 import { AudioRecorderModal } from './AudioRecorderModal';
+import { AddressAutocompleteMobile } from './AddressAutocompleteMobile';
 
 export interface CapturedEvidence {
   id: string;
@@ -285,6 +286,13 @@ export function DynamicFormMobile({
               >
                 <Text style={styles.actionTxt}>🗺️ Capturar en Mapa ({Array.isArray(val) ? val.length : 0})</Text>
               </TouchableOpacity>
+            ) : f.type === 'text' && /ubicaci|direcci|comuna|sector|address/i.test(`${f.key} ${f.label}`) ? (
+              <AddressAutocompleteMobile
+                editable={!disabled}
+                value={val === undefined || val === null ? '' : String(val)}
+                onChangeText={(t) => setVal(f.key, t)}
+                placeholder={f.placeholder || 'Buscar dirección o comuna...'}
+              />
             ) : (
               <TextInput
                 style={[styles.input, f.type === 'textarea' && { height: 80, textAlignVertical: 'top' }]}

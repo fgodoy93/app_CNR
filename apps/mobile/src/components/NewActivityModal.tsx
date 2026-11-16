@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Modal, View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { AddressAutocompleteMobile } from './AddressAutocompleteMobile';
 import { COLORS } from '../theme';
 
 export function NewActivityModal({
@@ -40,7 +41,7 @@ export function NewActivityModal({
           </View>
 
           <TextInput style={styles.input} value={title} onChangeText={setTitle} placeholder="Título de la inspección u orden *" />
-          <TextInput style={styles.input} value={address} onChangeText={setAddress} placeholder="Ubicación / Sector" />
+          <AddressAutocompleteMobile value={address} onChangeText={setAddress} placeholder="Ubicación / Sector (con sugerencias)" />
           <TextInput style={[styles.input, { height: 60 }]} multiline value={description} onChangeText={setDescription} placeholder="Descripción" />
 
           <Text style={styles.label}>Prioridad</Text>

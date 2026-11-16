@@ -2,6 +2,7 @@
 
 import { useRef, useState } from 'react';
 import { evaluateForm, type FormDefinition, type FormContext, type FormValues } from '@terreno/shared';
+import { AddressAutocomplete } from './AddressAutocomplete';
 
 export function DynamicFormRenderer({
   definition,
@@ -297,6 +298,12 @@ export function DynamicFormRenderer({
               <div className="text-xs text-slate-500 bg-slate-50 border border-dashed border-slate-300 rounded-lg p-3">
                 Campo de firma digital. Firmas registradas: {Array.isArray(val) ? val.length : 0}. Capture la firma desde la app móvil.
               </div>
+            ) : f.type === 'text' && !isDisabled && /ubicaci|direcci|comuna|sector|address/i.test(`${f.key} ${f.label}`) ? (
+              <AddressAutocomplete
+                value={String(val ?? '')}
+                onChange={(v) => setField(f.key, v)}
+                placeholder={f.placeholder || 'Buscar dirección o comuna...'}
+              />
             ) : (
               <input
                 type="text"
