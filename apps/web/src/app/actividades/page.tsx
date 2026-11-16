@@ -85,7 +85,7 @@ export default function ActividadesPage() {
       <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
         <div className="flex flex-wrap gap-2 items-center">
           <div className="relative">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
               value={q}
               onChange={(e) => setQ(e.target.value)}
@@ -100,23 +100,23 @@ export default function ActividadesPage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <div className="inline-flex rounded-[4px] border border-[#d9e2ec] bg-white p-0.5">
+          <div className="inline-flex h-[40px] items-center rounded-[4px] border border-[#d9e2ec] bg-white p-0.5">
             <button
               onClick={() => setViewMode('list')}
-              className={`btn btn-sm border-0 ${
+              className={`btn h-full px-3.5 text-sm border-0 ${
                 viewMode === 'list' ? 'btn-primary' : 'bg-transparent text-slate-600 hover:bg-slate-50'
               }`}
             >
-              <LayoutList className="w-3.5 h-3.5" />
+              <LayoutList className="w-4 h-4" />
               Listado
             </button>
             <button
               onClick={() => setViewMode('kanban')}
-              className={`btn btn-sm border-0 ${
+              className={`btn h-full px-3.5 text-sm border-0 ${
                 viewMode === 'kanban' ? 'btn-success' : 'bg-transparent text-slate-600 hover:bg-slate-50'
               }`}
             >
-              <Columns3 className="w-3.5 h-3.5" />
+              <Columns3 className="w-4 h-4" />
               Kanban
             </button>
           </div>
