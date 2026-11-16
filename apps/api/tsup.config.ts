@@ -8,6 +8,7 @@ export default defineConfig({
   outDir: 'dist',
   clean: true,
   sourcemap: true,
+  skipNodeModulesBundle: true,
   // bundle the workspace package (TS sources) into the output
   noExternal: ['@terreno/shared'],
 });
