@@ -79,7 +79,7 @@ export function AppShell({ title, children }: { title: string; children: React.R
     <div className="min-h-screen flex bg-[#f2f6f4] text-[#0f241d]">
       {/* Sidebar */}
       <aside
-        className={`fixed inset-y-0 left-0 z-40 w-64 bg-gradient-to-b from-[#006fb3] via-[#0a3456] to-[#082942] text-white flex flex-col transition-transform lg:static lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-40 w-64 bg-gradient-to-b from-[#006fb3] via-[#0a3456] to-[#082942] text-white flex flex-col transition-transform lg:sticky lg:top-0 lg:h-screen lg:shrink-0 lg:translate-x-0 ${
           mobileOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
