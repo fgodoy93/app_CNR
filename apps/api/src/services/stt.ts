@@ -37,7 +37,8 @@ export async function transcribeAudioBuffer(buffer: Buffer, fileName = 'audio.m4
   }
 
   const dir = await mkdtemp(join(tmpdir(), 'terreno-stt-'));
-  const ext = extname(fileName) || '.m4a';
+  const rawExt = extname(fileName);
+  const ext = /^\.[a-z0-9]{1,8}$/i.test(rawExt) ? rawExt.toLowerCase() : '.m4a';
   const tmpAudio = join(dir, `audio${ext}`);
   try {
     await writeFile(tmpAudio, buffer);
