@@ -9,7 +9,8 @@ COPY packages/shared/package.json packages/shared/
 COPY apps/api/package.json apps/api/
 COPY apps/web/package.json apps/web/
 
-RUN npm ci --workspace=@terreno/shared --workspace=@terreno/api --include-workspace-root
+# Forzar devDependencies (tsup, prisma, typescript) aunque Coolify inyecte NODE_ENV=production en build-time
+RUN npm ci --include=dev --workspace=@terreno/shared --workspace=@terreno/api --include-workspace-root
 
 COPY packages/shared ./packages/shared
 COPY apps/api ./apps/api

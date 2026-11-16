@@ -7,7 +7,8 @@ COPY packages/shared/package.json packages/shared/
 COPY apps/web/package.json apps/web/
 COPY apps/api/package.json apps/api/
 
-RUN npm ci --workspace=@terreno/shared --workspace=@terreno/web --include-workspace-root
+# Forzar devDependencies (typescript, tailwindcss, etc.) aunque Coolify inyecte NODE_ENV=production en build-time
+RUN npm ci --include=dev --workspace=@terreno/shared --workspace=@terreno/web --include-workspace-root
 
 COPY packages/shared ./packages/shared
 COPY apps/web ./apps/web
