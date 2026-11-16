@@ -16,7 +16,14 @@ function AuthEvidencePreview({ ev }: { ev: { id: string; kind: string; fileName?
     fetch(`${API_BASE}/api/v1/evidences/${ev.id}/file`, {
       headers: getToken() ? { Authorization: `Bearer ${getToken()}` } : {},
     })
-      .then((r) => (r.ok ? r.blob() : null))
+      .then(async (r) => {
+        if (!r.ok) return null;
+        const b = await r.blob();
+        if (ev.kind === 'AUDIO' && (!b.type || b.type === 'application/octet-stream')) {
+          return new Blob([b], { type: 'audio/mp4' });
+        }
+        return b;
+      })
       .then((b) => {
         if (!active || !b) return;
         created = URL.createObjectURL(b);

@@ -16,11 +16,33 @@ const SAFE_INLINE_MIMES = new Set([
   'audio/mp4',
   'audio/m4a',
   'audio/x-m4a',
+  'audio/aac',
   'audio/mpeg',
   'audio/ogg',
   'audio/wav',
+  'audio/x-wav',
   'audio/webm',
+  'audio/3gpp',
 ]);
+
+function resolveSafeMime(rawMime: string | null, fileName: string | null): { mime: string; isSafeInline: boolean } {
+  let base = (rawMime || '').split(';')[0]!.trim().toLowerCase();
+  if ((!base || base === 'application/octet-stream') && fileName) {
+    const lower = fileName.toLowerCase();
+    if (lower.endsWith('.m4a') || lower.endsWith('.mp4')) base = 'audio/mp4';
+    else if (lower.endsWith('.webm')) base = 'audio/webm';
+    else if (lower.endsWith('.ogg')) base = 'audio/ogg';
+    else if (lower.endsWith('.mp3')) base = 'audio/mpeg';
+    else if (lower.endsWith('.wav')) base = 'audio/wav';
+    else if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) base = 'image/jpeg';
+    else if (lower.endsWith('.png')) base = 'image/png';
+    else if (lower.endsWith('.pdf')) base = 'application/pdf';
+  }
+  if (base === 'audio/m4a' || base === 'audio/x-m4a') base = 'audio/mp4';
+  if (base === 'audio/x-wav') base = 'audio/wav';
+  const isSafeInline = SAFE_INLINE_MIMES.has(base);
+  return { mime: isSafeInline ? base : 'application/octet-stream', isSafeInline };
+}
 
 export const evidencesRoutes: FastifyPluginAsync = async (app) => {
   app.addHook('preHandler', app.authenticate);
@@ -32,10 +54,9 @@ export const evidencesRoutes: FastifyPluginAsync = async (app) => {
     await getActivityForActor(req.actor, ev.activityId);
     const buf = await storage.get(ev.storageKey, ev.encrypted);
     const safeName = (ev.fileName || ev.id).replace(/["\r\n\\]/g, '_');
-    const mime = (ev.mimeType || 'application/octet-stream').toLowerCase();
-    const isSafeInline = SAFE_INLINE_MIMES.has(mime);
+    const { mime, isSafeInline } = resolveSafeMime(ev.mimeType, ev.fileName);
     reply.header('X-Content-Type-Options', 'nosniff');
-    reply.header('Content-Type', isSafeInline ? mime : 'application/octet-stream');
+    reply.header('Content-Type', mime);
     reply.header('Content-Disposition', `${isSafeInline ? 'inline' : 'attachment'}; filename="${safeName}"`);
     return buf;
   });

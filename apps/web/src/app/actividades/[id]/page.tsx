@@ -416,14 +416,23 @@ function ActividadDetailInner() {
                               const res = await fetch(`${API_BASE}/api/v1/evidences/${ev.id}/file`, {
                                 headers: { Authorization: `Bearer ${getToken()}` },
                               });
-                              const blob = await res.blob();
+                              if (!res.ok) {
+                                setError(`No se pudo cargar el archivo (${res.status})`);
+                                return;
+                              }
+                              const rawBlob = await res.blob();
+                              const blob =
+                                ev.kind === 'AUDIO' && (!rawBlob.type || rawBlob.type === 'application/octet-stream')
+                                  ? new Blob([rawBlob], { type: ev.mimeType?.split(';')[0] || 'audio/mp4' })
+                                  : rawBlob;
                               const url = URL.createObjectURL(blob);
                               if (ev.kind === 'AUDIO') {
                                 const audioEl = document.getElementById(`audio-${ev.id}`) as HTMLAudioElement | null;
                                 if (audioEl) {
                                   audioEl.src = url;
                                   audioEl.classList.remove('hidden');
-                                  void audioEl.play();
+                                  audioEl.load();
+                                  void audioEl.play().catch(() => undefined);
                                   return;
                                 }
                               }
