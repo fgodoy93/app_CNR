@@ -49,9 +49,9 @@ export default function LoginPage() {
                 <BrandMark size={42} />
                 <div>
                   <div className="text-xs uppercase tracking-wider text-emerald-200 font-semibold">
-                    Gobierno de Chile
+                    Ministerio de Agricultura
                   </div>
-                  <div className="font-bold text-lg leading-tight">CNR</div>
+                  <div className="font-bold text-lg leading-tight">Comisión Nacional de Riego</div>
                 </div>
               </div>
 
