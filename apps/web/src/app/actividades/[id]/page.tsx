@@ -10,7 +10,7 @@ import { AuditDiffView } from '@/components/AuditDiffView';
 import { MapClient } from '@/components/MapClient';
 import { api, API_BASE, getToken } from '@/lib/api';
 import { closeRing, type Position } from '@terreno/shared';
-import { FileText, MapPin, Upload, Save, CheckCircle, ArrowLeft, Undo2, Trash2, Plus, GitBranch } from 'lucide-react';
+import { FileText, MapPin, Upload, Save, CheckCircle, ArrowLeft, Undo2, Trash2, Plus, GitBranch, RefreshCw } from 'lucide-react';
 
 function ActividadDetailInner() {
   const { id } = useParams<{ id: string }>();
@@ -149,8 +149,15 @@ function ActividadDetailInner() {
   const generateDoc = async (kind: 'REPORT' | 'VOUCHER') => {
     setError(null);
     try {
-      await api.post(`/api/v1/activities/${detail.activity.id}/documents`, { kind });
-      setMsg(`${kind === 'VOUCHER' ? 'Comprobante' : 'Informe PDF'} generado con QR de verificación.`);
+      const doc = await api.post<{ id: string; verifyCode: string }>(
+        `/api/v1/activities/${detail.activity.id}/documents`,
+        { kind },
+      );
+      await api.download(
+        `/api/v1/documents/${doc.id}/download`,
+        `${detail.activity.folio}-${kind === 'VOUCHER' ? 'comprobante' : 'informe'}.pdf`,
+      );
+      setMsg(`${kind === 'VOUCHER' ? 'Comprobante' : 'Informe PDF'} generado y descargado.`);
       load();
     } catch (e: any) {
       setError(e.message);
@@ -353,6 +360,9 @@ function ActividadDetailInner() {
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
+            <button onClick={() => load()} className="inline-flex items-center gap-1.5 px-3 py-2 border border-slate-300 rounded-lg text-sm hover:bg-slate-50" title="Recargar últimos cambios sincronizados">
+              <RefreshCw className="w-4 h-4" /> Actualizar
+            </button>
             <button onClick={() => generateDoc('VOUCHER')} className="inline-flex items-center gap-1.5 px-3 py-2 border border-slate-300 rounded-lg text-sm hover:bg-slate-50">
               <FileText className="w-4 h-4" /> Generar Voucher
             </button>

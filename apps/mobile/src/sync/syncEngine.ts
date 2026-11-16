@@ -37,6 +37,28 @@ export async function syncAll(): Promise<SyncSummary> {
   const db = await getDb();
   const deviceId = await getDeviceId();
 
+  // 0. Ensure any unsynced local geo_features without a PENDING queue entry are queued/retried
+  const unsyncedGeos = await db.getAllAsync<any>(`SELECT * FROM geo_features WHERE synced = 0`);
+  for (const g of unsyncedGeos) {
+    const qRow = await db.getFirstAsync<{ mutationId: string; status: string }>(
+      `SELECT mutationId, status FROM sync_queue WHERE entity = 'geoFeature' AND entityId = ?`,
+      [g.id],
+    );
+    if (!qRow) {
+      await enqueueMutation('geoFeature', 'upsert', g.id, {
+        activityId: g.activityId,
+        kind: g.kind,
+        geometry: JSON.parse(g.geometry),
+        label: g.label,
+        observations: g.observations,
+        accuracy: g.accuracy ?? undefined,
+        capturedAt: g.capturedAt,
+      });
+    } else if (qRow.status === 'REJECTED') {
+      await db.runAsync(`UPDATE sync_queue SET status = 'PENDING', error = NULL WHERE mutationId = ?`, [qRow.mutationId]);
+    }
+  }
+
   // 1. Push pending mutations
   const pending = await db.getAllAsync<{
     mutationId: string;
@@ -49,7 +71,7 @@ export async function syncAll(): Promise<SyncSummary> {
 
   let pushed = 0;
   if (pending.length > 0) {
-    const res = await apiFetch<{ results: { mutationId: string; status: string; message?: string }[] }>(
+    const res = await apiFetch<{ results: { mutationId: string; entityId: string; status: string; message?: string }[] }>(
       '/api/v1/sync/push',
       {
         method: 'POST',
@@ -67,9 +89,14 @@ export async function syncAll(): Promise<SyncSummary> {
       },
     );
 
+    const entityMap = new Map(pending.map((m) => [m.mutationId, m]));
     for (const r of res.results) {
       if (r.status === 'applied' || r.status === 'duplicate') {
         await db.runAsync(`DELETE FROM sync_queue WHERE mutationId = ?`, [r.mutationId]);
+        const mut = entityMap.get(r.mutationId);
+        if (mut?.entity === 'geoFeature') {
+          await db.runAsync(`UPDATE geo_features SET synced = 1 WHERE id = ?`, [mut.entityId]);
+        }
         pushed++;
       } else {
         await db.runAsync(`UPDATE sync_queue SET status = 'REJECTED', error = ? WHERE mutationId = ?`, [

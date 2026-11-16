@@ -401,23 +401,23 @@ function buildPdf(ctx: {
       doc.fillColor(PRIMARY).font('Helvetica-Bold').fontSize(14).text('CNR · Comisión Nacional de Riego', 40, y + 10);
     }
 
-    // Título derecho + QR (calculando altura dinámica para evitar superposiciones)
-    const hdrX = 165;
-    const hdrW = 300;
+    // Título centrado entre logo y QR (calculando altura dinámica para evitar superposiciones)
+    const hdrX = 140;
+    const hdrW = 325;
     const docTitle =
       kind === 'VOUCHER' ? 'COMPROBANTE OFICIAL DE RECEPCIÓN' : 'INFORME TÉCNICO DE INSPECCIÓN EN TERRENO';
     doc.fillColor(MUTED).font('Helvetica-Bold').fontSize(7.5).text('MINISTERIO DE AGRICULTURA · GOBIERNO DE CHILE', hdrX, y + 2, {
       width: hdrW,
-      align: 'right',
+      align: 'center',
     });
     doc.fillColor(PRIMARY).font('Helvetica-Bold').fontSize(10.5);
     const titleH = doc.heightOfString(docTitle, { width: hdrW });
-    doc.text(docTitle, hdrX, y + 14, { width: hdrW, align: 'right' });
+    doc.text(docTitle, hdrX, y + 14, { width: hdrW, align: 'center' });
     doc.fillColor(TEXT).font('Helvetica').fontSize(8).text(
       `Folio: ${activity.folio}  |  Emisión: ${new Date().toLocaleString('es-CL')}`,
       hdrX,
       y + 18 + titleH,
-      { width: hdrW, align: 'right' },
+      { width: hdrW, align: 'center' },
     );
 
     doc.image(qrBuffer, 483, y - 2, { width: 66 });
