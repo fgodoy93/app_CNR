@@ -101,6 +101,9 @@ export async function buildApp() {
     httpDuration.observe({ method: req.method, route }, duration);
   });
 
+  // Register Auth before routes that use app.authenticate
+  await app.register(authPlugin);
+
   // Base endpoints: Health & Metrics
   app.get('/health', async () => getSystemHealth());
 
@@ -112,9 +115,6 @@ export async function buildApp() {
       return registry.metrics();
     },
   );
-
-  // Register Auth
-  await app.register(authPlugin);
 
   // Business API Routes
   await app.register(authRoutes, { prefix: '/api/v1/auth' });
