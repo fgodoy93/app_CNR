@@ -106,14 +106,14 @@ function AppContent() {
   const selectedIdRef = useRef<string | null>(null);
   selectedIdRef.current = selected?.id ?? null;
 
-  const locateDeviceForDetail = async () => {
+  const locateDeviceForDetail = async (autoFocus = true) => {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') return;
       const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
       const coords = { lat: pos.coords.latitude, lng: pos.coords.longitude, zoom: 16 };
       setDevicePos({ lat: coords.lat, lng: coords.lng });
-      setDetailFocus(coords);
+      if (autoFocus) setDetailFocus(coords);
     } catch {
       // ignore if GPS unavailable
     }
@@ -262,11 +262,13 @@ function AppContent() {
       ),
     );
 
-    setActGeo(await db.getAllAsync<any>(`SELECT * FROM geo_features WHERE activityId = ? ORDER BY capturedAt DESC`, [act.id]));
+    const geos = await db.getAllAsync<any>(`SELECT * FROM geo_features WHERE activityId = ? ORDER BY capturedAt DESC`, [act.id]);
+    setActGeo(geos);
     setActEvidences(await db.getAllAsync<any>(`SELECT * FROM evidences WHERE activityId = ? ORDER BY capturedAt DESC`, [act.id]));
     setMissingKeys([]);
-    setDetailFocus(null);
-    void locateDeviceForDetail();
+    const hasActivityCoords = typeof act.lat === 'number' && typeof act.lng === 'number';
+    setDetailFocus(geos.length === 0 && hasActivityCoords ? { lat: act.lat, lng: act.lng, zoom: 16 } : null);
+    void locateDeviceForDetail(geos.length === 0 && !hasActivityCoords);
   };
 
   const saveOfflineProgress = async () => {
@@ -705,7 +707,7 @@ function AppContent() {
             <View style={[styles.rowBetween, { marginBottom: 10, gap: 6 }]}>
               <Text style={[styles.sectionHeader, { marginBottom: 0, flex: 1 }]}>Puntos y Geometrías GPS ({actGeo.length})</Text>
               <TouchableOpacity
-                onPress={locateDeviceForDetail}
+                onPress={() => void locateDeviceForDetail(true)}
                 style={[styles.smallPriBtn, { backgroundColor: COLORS.water, paddingHorizontal: 10 }]}
               >
                 <Text style={styles.smallPriTxt}>🎯 Mi ubicación</Text>
