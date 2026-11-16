@@ -12,6 +12,7 @@ import {
   Platform,
   AppState,
   Switch,
+  Image,
 } from 'react-native';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -81,6 +82,8 @@ function AppContent() {
   const [devicePos, setDevicePos] = useState<{ lat: number; lng: number } | null>(null);
   const [detailFocus, setDetailFocus] = useState<{ lat: number; lng: number; zoom?: number } | null>(null);
   const syncingRef = useRef(false);
+  const selectedIdRef = useRef<string | null>(null);
+  selectedIdRef.current = selected?.id ?? null;
 
   const locateDeviceForDetail = async () => {
     try {
@@ -141,6 +144,15 @@ function AppContent() {
     try {
       const summary = await syncAll();
       await refreshLocal();
+      if (selectedIdRef.current) {
+        const db = await getDb();
+        const fresh = await db.getFirstAsync<any>(`SELECT * FROM activities WHERE id = ?`, [selectedIdRef.current]);
+        if (fresh) {
+          setSelected(fresh);
+          setActGeo(await db.getAllAsync<any>(`SELECT * FROM geo_features WHERE activityId = ? ORDER BY capturedAt DESC`, [fresh.id]));
+          setActEvidences(await db.getAllAsync<any>(`SELECT * FROM evidences WHERE activityId = ? ORDER BY capturedAt DESC`, [fresh.id]));
+        }
+      }
       setLastAutoSyncAt(new Date().toLocaleTimeString('es-CL'));
       if (!silent) {
         Alert.alert(
@@ -657,13 +669,18 @@ function AppContent() {
               <Text style={styles.meta}>Sin evidencias aún.</Text>
             ) : (
               actEvidences.map((ev) => (
-                <View key={ev.id} style={styles.subItem}>
-                  <Text style={{ fontWeight: '600', fontSize: 12 }}>
-                    {ev.kind === 'AUDIO' ? '🎙️ ' : ''}
-                    {ev.kind} · {ev.fileName || ev.source} {ev.synced ? '✓ Sincronizada' : '⏳ Pendiente'}
-                  </Text>
-                  {ev.transcript ? <Text style={{ fontSize: 11, color: COLORS.text, marginTop: 2 }}>“{ev.transcript}”</Text> : null}
-                  <Text style={styles.meta}>{new Date(ev.capturedAt).toLocaleString('es-CL')}</Text>
+                <View key={ev.id} style={[styles.subItem, { flexDirection: 'row', alignItems: 'center', gap: 10 }]}>
+                  {ev.kind === 'PHOTO' && ev.fileUri ? (
+                    <Image source={{ uri: ev.fileUri }} style={{ width: 46, height: 46, borderRadius: 6, backgroundColor: '#e2e8f0' }} />
+                  ) : null}
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontWeight: '600', fontSize: 12 }}>
+                      {ev.kind === 'AUDIO' ? '🎙️ ' : ev.kind === 'PHOTO' ? '📷 ' : ''}
+                      {ev.kind} · {ev.fileName || ev.source} {ev.synced ? '✓ Sincronizada' : '⏳ Pendiente'}
+                    </Text>
+                    {ev.transcript ? <Text style={{ fontSize: 11, color: COLORS.text, marginTop: 2 }}>“{ev.transcript}”</Text> : null}
+                    <Text style={styles.meta}>{new Date(ev.capturedAt).toLocaleString('es-CL')}</Text>
+                  </View>
                 </View>
               ))
             )}
@@ -898,7 +915,7 @@ function AppContent() {
           <Text style={[styles.tabTxt, tab === 'map' && styles.tabTxtActive]}>🗺️ Mapa</Text>
         </TouchableOpacity>
         <TouchableOpacity onPress={() => setTab('sync')} style={[styles.tabItem, tab === 'sync' && styles.tabItemActive]}>
-          <Text style={[styles.tabTxt, tab === 'sync' && styles.tabTxtActive]}>🔄 Sync ({pendingTotal})</Text>
+          <Text style={[styles.tabTxt, tab === 'sync' && styles.tabTxtActive]}>⚙️ Cuenta</Text>
         </TouchableOpacity>
       </View>
 

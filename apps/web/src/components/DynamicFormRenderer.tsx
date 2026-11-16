@@ -1,8 +1,55 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { evaluateForm, type FormDefinition, type FormContext, type FormValues } from '@terreno/shared';
+import { API_BASE, getToken } from '@/lib/api';
 import { AddressAutocomplete } from './AddressAutocomplete';
+
+function AuthEvidencePreview({ ev }: { ev: { id: string; kind: string; fileName?: string | null; transcript?: string | null } }) {
+  const [blobUrl, setBlobUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (ev.kind !== 'PHOTO' && ev.kind !== 'AUDIO') return;
+    let active = true;
+    let created: string | null = null;
+    fetch(`${API_BASE}/api/v1/evidences/${ev.id}/file`, {
+      headers: getToken() ? { Authorization: `Bearer ${getToken()}` } : {},
+    })
+      .then((r) => (r.ok ? r.blob() : null))
+      .then((b) => {
+        if (!active || !b) return;
+        created = URL.createObjectURL(b);
+        setBlobUrl(created);
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+      if (created) URL.revokeObjectURL(created);
+    };
+  }, [ev.id, ev.kind]);
+
+  if (ev.kind === 'PHOTO' && blobUrl) {
+    return (
+      <a href={blobUrl} target="_blank" rel="noreferrer" className="block group">
+        <img src={blobUrl} alt={ev.fileName || 'Foto'} className="w-16 h-16 object-cover rounded-lg border border-slate-200 group-hover:opacity-90" />
+      </a>
+    );
+  }
+  if (ev.kind === 'AUDIO') {
+    return (
+      <div className="w-full bg-white border border-slate-200 rounded-lg p-2 space-y-1">
+        <div className="text-[11px] font-medium text-slate-700">🎙️ {ev.fileName || ev.id.slice(0, 8)}</div>
+        {blobUrl && <audio src={blobUrl} controls className="w-full h-8" />}
+        {ev.transcript && <div className="text-[11px] text-slate-600">“{ev.transcript}”</div>}
+      </div>
+    );
+  }
+  return (
+    <span className="text-[11px] bg-white border border-slate-200 rounded px-2 py-0.5 text-slate-700">
+      📄 {ev.fileName || ev.id.slice(0, 8)}
+    </span>
+  );
+}
 
 export function DynamicFormRenderer({
   definition,
@@ -247,13 +294,11 @@ export function DynamicFormRenderer({
                   )}
                 </div>
                 {evidences.filter((e) => e.fieldKey === f.key).length > 0 && (
-                  <div className="flex flex-wrap gap-1.5">
+                  <div className="flex flex-wrap gap-2 pt-1">
                     {evidences
                       .filter((e) => e.fieldKey === f.key)
                       .map((ev) => (
-                        <span key={ev.id} className="text-[11px] bg-white border border-slate-200 rounded px-2 py-0.5 text-slate-700">
-                          {ev.kind === 'PHOTO' ? '🖼️' : '📄'} {ev.fileName || ev.id.slice(0, 8)}
-                        </span>
+                        <AuthEvidencePreview key={ev.id} ev={ev} />
                       ))}
                   </div>
                 )}
@@ -282,14 +327,11 @@ export function DynamicFormRenderer({
                   )}
                 </div>
                 {evidences.filter((e) => e.fieldKey === f.key).length > 0 && (
-                  <div className="space-y-1">
+                  <div className="space-y-1.5 pt-1">
                     {evidences
                       .filter((e) => e.fieldKey === f.key)
                       .map((ev) => (
-                        <div key={ev.id} className="text-[11px] bg-white border border-slate-200 rounded px-2 py-1 text-slate-700">
-                          🎙️ <b>{ev.fileName || ev.id.slice(0, 8)}</b>
-                          {ev.transcript ? ` — “${ev.transcript}”` : ''}
-                        </div>
+                        <AuthEvidencePreview key={ev.id} ev={ev} />
                       ))}
                   </div>
                 )}
