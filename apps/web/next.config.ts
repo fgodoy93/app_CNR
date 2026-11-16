@@ -12,6 +12,10 @@ const nextConfig: NextConfig = {
         source: "/api/:path*",
         destination: `${target}/api/:path*`,
       },
+      {
+        source: "/health",
+        destination: `${target}/health`,
+      },
     ];
   },
   turbopack: {
