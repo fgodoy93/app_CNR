@@ -37,7 +37,7 @@ import { DynamicFormMobile, type CapturedEvidence } from './src/components/Dynam
 import { GeoCaptureModal, type GeoKindChoice } from './src/components/GeoCaptureModal';
 import { NewActivityModal } from './src/components/NewActivityModal';
 import { QrScannerModal } from './src/components/QrScannerModal';
-import { GobStripe, BrandEmblem } from './src/components/GobBrand';
+import { GobStripe, BrandEmblem, CnrLogoFull } from './src/components/GobBrand';
 import { MobileDashboard } from './src/components/MobileDashboard';
 import { MobileKanban } from './src/components/MobileKanban';
 import { MobileMapView } from './src/components/MobileMapView';
@@ -571,9 +571,8 @@ function AppContent() {
           <GobStripe />
           <View style={{ padding: 22, gap: 12 }}>
             <View style={{ alignItems: 'center', gap: 6, marginBottom: 4 }}>
-              <BrandEmblem size={48} />
-              <Text style={styles.brand}>TerrenoCNR Móvil</Text>
-              <Text style={styles.sub}>Comisión Nacional de Riego · Ministerio de Agricultura</Text>
+              <CnrLogoFull width={200} height={84} />
+              <Text style={styles.sub}>Ministerio de Agricultura · Gobierno de Chile</Text>
             </View>
             <TextInput style={styles.input} value={apiUrlInput} onChangeText={setApiUrlInput} placeholder="URL API" autoCapitalize="none" />
             <TextInput style={styles.input} value={email} onChangeText={setEmail} placeholder="Correo institucional" autoCapitalize="none" />
@@ -836,8 +835,8 @@ function AppContent() {
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
             <BrandEmblem size={30} />
             <View>
-              <Text style={styles.headerTitle}>TerrenoCNR</Text>
-              <Text style={{ color: '#a7f3d0', fontSize: 10, fontWeight: '600' }}>CNR · Min. Agricultura</Text>
+              <Text style={styles.headerTitle}>CNR</Text>
+              <Text style={{ color: '#dbeafe', fontSize: 10, fontWeight: '600' }}>Comisión Nacional de Riego</Text>
             </View>
           </View>
           <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>

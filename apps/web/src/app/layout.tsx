@@ -15,8 +15,8 @@ const robotoSlab = Roboto_Slab({
 });
 
 export const metadata: Metadata = {
-  title: "TerrenoCNR - Plataforma Web y Móvil para Toma de Información en Terreno",
-  description: "Digitalización, gestión, seguimiento y supervisión de actividades e inspecciones de obras de riego (CNR Chile)",
+  title: "CNR - Plataforma Web y Móvil para Toma de Información en Terreno",
+  description: "Comisión Nacional de Riego - Digitalización, gestión, seguimiento y supervisión en terreno",
 };
 
 export default function RootLayout({

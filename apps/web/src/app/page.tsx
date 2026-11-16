@@ -51,7 +51,7 @@ export default function LoginPage() {
                   <div className="text-xs uppercase tracking-wider text-emerald-200 font-semibold">
                     Gobierno de Chile
                   </div>
-                  <div className="font-bold text-lg leading-tight">TerrenoCNR</div>
+                  <div className="font-bold text-lg leading-tight">CNR</div>
                 </div>
               </div>
 

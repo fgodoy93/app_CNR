@@ -88,8 +88,8 @@ export function AppShell({ title, children }: { title: string; children: React.R
           <div className="flex items-center gap-2.5">
             <BrandMark size={34} />
             <div>
-              <div className="font-bold text-base tracking-tight leading-tight">TerrenoCNR</div>
-              <div className="text-[10px] text-emerald-300 font-medium">CNR · Min. Agricultura</div>
+              <div className="font-bold text-base tracking-tight leading-tight">CNR</div>
+              <div className="text-[10px] text-sky-200 font-medium">Comisión Nacional de Riego</div>
             </div>
           </div>
           <button onClick={() => setMobileOpen(false)} className="lg:hidden text-white/80 hover:text-white">
@@ -210,7 +210,7 @@ export function AppShell({ title, children }: { title: string; children: React.R
               Comisión Nacional de Riego (CNR) · Ministerio de Agricultura · Gobierno de Chile
             </div>
             <div className="text-slate-500">
-              TerrenoCNR · Sistema de Diseño Gobierno Digital
+              CNR · Sistema de Diseño Gobierno Digital
             </div>
           </div>
         </footer>
