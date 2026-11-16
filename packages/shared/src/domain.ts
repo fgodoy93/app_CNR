@@ -176,7 +176,7 @@ export const activityTypeSaveSchema = z.object({
 
 // ---------- Offline sync protocol ----------
 
-export const SYNC_ENTITIES = ['activity', 'geoFeature', 'transition', 'note'] as const;
+export const SYNC_ENTITIES = ['activity', 'geoFeature', 'transition', 'note', 'evidence'] as const;
 
 export const syncMutationSchema = z.object({
   /** unique id generated on the device; makes the push idempotent */

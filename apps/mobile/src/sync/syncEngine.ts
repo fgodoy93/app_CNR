@@ -20,7 +20,7 @@ function uploadFormDataWithXhr(url: string, token: string | null, formData: Form
 }
 
 export async function enqueueMutation(
-  entity: 'activity' | 'geoFeature' | 'transition' | 'note',
+  entity: 'activity' | 'geoFeature' | 'transition' | 'note' | 'evidence',
   op: 'upsert' | 'delete' | 'execute',
   entityId: string,
   payload: Record<string, unknown>,

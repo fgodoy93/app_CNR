@@ -88,6 +88,19 @@ export const activitiesRoutes: FastifyPluginAsync = async (app) => {
       }),
     ]);
 
+    const allEvRows = await prisma.evidence.findMany({
+      where: { activityId: act.id },
+      select: { id: true },
+    });
+    const evIds = allEvRows.map((e) => e.id);
+    const evidenceAuditLogs = evIds.length
+      ? await prisma.auditLog.findMany({
+          where: { entity: 'evidence', entityId: { in: evIds } },
+          orderBy: { createdAt: 'desc' },
+          take: 50,
+        })
+      : [];
+
     return {
       activity: serializeActivity(act),
       availableTransitions: transitions,
@@ -98,6 +111,7 @@ export const activitiesRoutes: FastifyPluginAsync = async (app) => {
       transitionHistory,
       documents,
       comments,
+      evidenceAuditLogs,
     };
   });
 

@@ -9,6 +9,7 @@ import { QrScannerModal } from './QrScannerModal';
 import { SignatureModal } from './SignatureModal';
 import { AudioRecorderModal } from './AudioRecorderModal';
 import { AddressAutocompleteMobile } from './AddressAutocompleteMobile';
+import { SignaturePreviewMobile } from './SignaturePreviewMobile';
 
 export interface CapturedEvidence {
   id: string;
@@ -33,6 +34,7 @@ export function DynamicFormMobile({
   onCaptureGeo,
   onOpenGeoMap,
   missingKeys = [],
+  evidences = [],
 }: {
   definition: FormDefinition;
   values: FormValues;
@@ -41,6 +43,7 @@ export function DynamicFormMobile({
   onCaptureGeo: (kind: 'POINT' | 'LINE' | 'POLYGON' | 'TRACK', coords: [number, number], accuracy?: number | null) => void;
   onOpenGeoMap?: (kind: 'POINT' | 'LINE' | 'POLYGON' | 'TRACK') => void;
   missingKeys?: string[];
+  evidences?: { id: string; kind: string; fieldKey?: string | null; note?: string | null }[];
 }) {
   const [qrField, setQrField] = useState<string | null>(null);
   const [sigField, setSigField] = useState<string | null>(null);
@@ -261,9 +264,16 @@ export function DynamicFormMobile({
                 <Text style={styles.actionTxt}>📎 Adjuntar Archivo ({Array.isArray(val) ? val.length : 0})</Text>
               </TouchableOpacity>
             ) : f.type === 'signature' ? (
-              <TouchableOpacity onPress={() => setSigField(f.key)} style={styles.actionBtn}>
-                <Text style={styles.actionTxt}>✍️ Capturar Firma ({Array.isArray(val) ? val.length : 0})</Text>
-              </TouchableOpacity>
+              <View style={{ gap: 6 }}>
+                <TouchableOpacity onPress={() => setSigField(f.key)} style={styles.actionBtn}>
+                  <Text style={styles.actionTxt}>✍️ Capturar Firma ({Array.isArray(val) ? val.length : 0})</Text>
+                </TouchableOpacity>
+                {evidences
+                  .filter((e) => e.fieldKey === f.key && e.kind === 'SIGNATURE')
+                  .map((ev) => (
+                    <SignaturePreviewMobile key={ev.id} note={ev.note} />
+                  ))}
+              </View>
             ) : f.type === 'audio' ? (
               <TouchableOpacity onPress={() => setAudioField({ key: f.key, isSpeech: false })} style={styles.actionBtn}>
                 <Text style={styles.actionTxt}>🎙️ Grabar Audio ({Array.isArray(val) ? val.length : 0})</Text>

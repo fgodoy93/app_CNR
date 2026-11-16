@@ -2,6 +2,7 @@ import { prisma } from '../db';
 import { syncMutations } from '../lib/metrics';
 import { createActivity, updateActivity, executeTransition } from './activities';
 import { addGeoFeature } from './geo';
+import { deleteEvidence, updateEvidence } from './evidences';
 import type { Actor } from '../types';
 import type { SyncMutation, SyncResult } from '@terreno/shared';
 
@@ -64,6 +65,15 @@ export async function processSyncPush(
             const p = m.payload as { activityId: string; transition: string; comment?: string };
             const updated = await executeTransition(actor, p.activityId, p.transition, p.comment);
             serverVer = updated.version;
+          }
+          break;
+        }
+
+        case 'evidence': {
+          if (m.op === 'delete') {
+            await deleteEvidence(actor, m.entityId);
+          } else if (m.op === 'upsert') {
+            await updateEvidence(actor, m.entityId, m.payload as any);
           }
           break;
         }

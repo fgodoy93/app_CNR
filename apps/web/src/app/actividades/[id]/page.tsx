@@ -402,32 +402,69 @@ function ActividadDetailInner() {
                           {new Date(ev.capturedAt).toLocaleString('es-CL')} · {ev.uploadedBy?.name || 'Usuario'} · SHA256: {ev.sha256?.slice(0, 12)}...
                         </div>
                       </div>
-                      {ev.storageKey && (
-                        <a
-                          href={`${API_BASE}/api/v1/evidences/${ev.id}/file`}
-                          onClick={async (e) => {
-                            e.preventDefault();
-                            const res = await fetch(`${API_BASE}/api/v1/evidences/${ev.id}/file`, {
-                              headers: { Authorization: `Bearer ${getToken()}` },
-                            });
-                            const blob = await res.blob();
-                            const url = URL.createObjectURL(blob);
-                            if (ev.kind === 'AUDIO') {
-                              const audioEl = document.getElementById(`audio-${ev.id}`) as HTMLAudioElement | null;
-                              if (audioEl) {
-                                audioEl.src = url;
-                                audioEl.classList.remove('hidden');
-                                void audioEl.play();
-                                return;
+                      <div className="flex items-center gap-3 shrink-0">
+                        {ev.storageKey && (
+                          <a
+                            href={`${API_BASE}/api/v1/evidences/${ev.id}/file`}
+                            onClick={async (e) => {
+                              e.preventDefault();
+                              const res = await fetch(`${API_BASE}/api/v1/evidences/${ev.id}/file`, {
+                                headers: { Authorization: `Bearer ${getToken()}` },
+                              });
+                              const blob = await res.blob();
+                              const url = URL.createObjectURL(blob);
+                              if (ev.kind === 'AUDIO') {
+                                const audioEl = document.getElementById(`audio-${ev.id}`) as HTMLAudioElement | null;
+                                if (audioEl) {
+                                  audioEl.src = url;
+                                  audioEl.classList.remove('hidden');
+                                  void audioEl.play();
+                                  return;
+                                }
                               }
+                              window.open(url, '_blank');
+                            }}
+                            className="text-[#006fb3] hover:underline text-xs font-medium"
+                          >
+                            {ev.kind === 'AUDIO' ? 'Reproducir audio' : 'Ver archivo'}
+                          </a>
+                        )}
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            if (ev.kind === 'AUDIO') {
+                              const next = window.prompt('Editar transcripción del audio:', ev.transcript || '');
+                              if (next === null) return;
+                              await api.patch(`/api/v1/evidences/${ev.id}`, { transcript: next });
+                            } else if (ev.kind === 'SIGNATURE') {
+                              const next = window.prompt('Nombre o referencia de la firma:', ev.fileName || 'Firma en terreno');
+                              if (next === null) return;
+                              await api.patch(`/api/v1/evidences/${ev.id}`, { fileName: next });
+                            } else {
+                              const next = window.prompt('Editar observación / nota:', ev.note || '');
+                              if (next === null) return;
+                              await api.patch(`/api/v1/evidences/${ev.id}`, { note: next });
                             }
-                            window.open(url, '_blank');
+                            setMsg('Evidencia actualizada (trazabilidad registrada).');
+                            load();
                           }}
-                          className="text-[#0e7490] hover:underline text-xs font-medium shrink-0"
+                          className="text-xs font-medium text-slate-600 hover:text-[#006fb3]"
                         >
-                          {ev.kind === 'AUDIO' ? 'Reproducir audio' : 'Ver archivo'}
-                        </a>
-                      )}
+                          Editar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            if (!window.confirm('¿Eliminar esta evidencia? El cambio quedará registrado en la trazabilidad.')) return;
+                            await api.delete(`/api/v1/evidences/${ev.id}`);
+                            setMsg('Evidencia eliminada (trazabilidad registrada).');
+                            load();
+                          }}
+                          className="text-xs font-medium text-[#e22c2c] hover:underline"
+                        >
+                          Eliminar
+                        </button>
+                      </div>
                     </div>
                     {ev.kind === 'SIGNATURE' && ev.note && (
                       <div className="pt-1">
@@ -687,6 +724,16 @@ function ActividadDetailInner() {
                   <div className="text-slate-500">
                     {new Date(t.createdAt).toLocaleString('es-CL')} · {t.user?.name || 'Sistema'}
                     {t.comment ? ` — "${t.comment}"` : ''}
+                  </div>
+                </div>
+              ))}
+              {(detail.evidenceAuditLogs ?? []).map((log: any) => (
+                <div key={log.id} className="text-xs border-l-2 border-amber-500 pl-3 py-1">
+                  <div className="font-semibold text-slate-800">
+                    Evidencia {log.action === 'delete' ? 'eliminada' : 'editada'}
+                  </div>
+                  <div className="text-slate-500">
+                    {new Date(log.createdAt).toLocaleString('es-CL')} · {log.actorName || 'Usuario'}
                   </div>
                 </div>
               ))}

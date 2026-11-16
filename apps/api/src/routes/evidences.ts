@@ -1,5 +1,6 @@
 import type { FastifyPluginAsync } from 'fastify';
-import { createEvidence } from '../services/evidences';
+import { z } from 'zod';
+import { createEvidence, deleteEvidence, updateEvidence } from '../services/evidences';
 import { transcribeAudioBuffer } from '../services/stt';
 import { evidenceMetaSchema } from '@terreno/shared';
 import { badRequest, notFound } from '../lib/errors';
@@ -82,5 +83,22 @@ export const evidencesRoutes: FastifyPluginAsync = async (app) => {
     );
 
     return reply.status(201).send(result);
+  });
+
+  app.patch('/:id', async (req) => {
+    const { id } = req.params as { id: string };
+    const patch = z
+      .object({
+        note: z.string().max(20000).nullable().optional(),
+        transcript: z.string().max(20000).nullable().optional(),
+        fileName: z.string().max(255).nullable().optional(),
+      })
+      .parse(req.body);
+    return updateEvidence(req.actor, id, patch);
+  });
+
+  app.delete('/:id', async (req) => {
+    const { id } = req.params as { id: string };
+    return deleteEvidence(req.actor, id);
   });
 };

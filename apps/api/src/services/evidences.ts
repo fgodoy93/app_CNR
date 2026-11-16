@@ -1,9 +1,10 @@
 import { prisma } from '../db';
 import { storage } from '../lib/storage';
 import { sha256 } from '../lib/crypto';
+import { audit } from '../lib/audit';
 import { getActivityForActor } from './activities';
 import { transcribeAudioBuffer } from './stt';
-import { badRequest } from '../lib/errors';
+import { badRequest, notFound } from '../lib/errors';
 import type { Actor } from '../types';
 import type { EvidenceKind } from '@prisma/client';
 
@@ -116,4 +117,62 @@ export async function createEvidence(
   }
 
   return created;
+}
+
+export async function updateEvidence(
+  actor: Actor,
+  id: string,
+  patch: { note?: string | null; transcript?: string | null; fileName?: string | null },
+) {
+  const existing = await prisma.evidence.findUnique({ where: { id } });
+  if (!existing || existing.deletedAt) throw notFound('Evidencia no encontrada');
+  await getActivityForActor(actor, existing.activityId);
+
+  const updated = await prisma.evidence.update({
+    where: { id },
+    data: {
+      ...(patch.note !== undefined ? { note: patch.note } : {}),
+      ...(patch.transcript !== undefined ? { transcript: patch.transcript } : {}),
+      ...(patch.fileName !== undefined ? { fileName: patch.fileName } : {}),
+    },
+  });
+
+  await audit(actor, 'evidence', id, 'update', {
+    before: { note: existing.note, transcript: existing.transcript, fileName: existing.fileName },
+    after: { note: updated.note, transcript: updated.transcript, fileName: updated.fileName },
+    meta: { activityId: existing.activityId, kind: existing.kind },
+  });
+
+  return updated;
+}
+
+export async function deleteEvidence(actor: Actor, id: string) {
+  const existing = await prisma.evidence.findUnique({ where: { id } });
+  if (!existing || existing.deletedAt) throw notFound('Evidencia no encontrada');
+  await getActivityForActor(actor, existing.activityId);
+
+  await prisma.evidence.update({
+    where: { id },
+    data: { deletedAt: new Date() },
+  });
+
+  if (existing.fieldKey) {
+    const act = await prisma.activity.findUnique({ where: { id: existing.activityId }, select: { data: true } });
+    const data = (act?.data as Record<string, unknown>) || {};
+    const cur = data[existing.fieldKey];
+    if (Array.isArray(cur)) {
+      const next = cur.filter((x) => x !== id);
+      await prisma.activity.update({
+        where: { id: existing.activityId },
+        data: { data: { ...data, [existing.fieldKey]: next } as any },
+      });
+    }
+  }
+
+  await audit(actor, 'evidence', id, 'delete', {
+    before: { kind: existing.kind, fileName: existing.fileName, fieldKey: existing.fieldKey, transcript: existing.transcript },
+    meta: { activityId: existing.activityId },
+  });
+
+  return { id, deleted: true };
 }

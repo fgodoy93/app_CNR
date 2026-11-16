@@ -38,6 +38,7 @@ import { GeoCaptureModal, type GeoKindChoice } from './src/components/GeoCapture
 import { NewActivityModal } from './src/components/NewActivityModal';
 import { QrScannerModal } from './src/components/QrScannerModal';
 import { GobStripe, BrandEmblem, CnrLogoFull } from './src/components/GobBrand';
+import { SignaturePreviewMobile } from './src/components/SignaturePreviewMobile';
 import { MobileDashboard } from './src/components/MobileDashboard';
 import { MobileKanban } from './src/components/MobileKanban';
 import { MobileMapView } from './src/components/MobileMapView';
@@ -375,6 +376,39 @@ function AppContent() {
     );
     await refreshLocal();
     setActEvidences(await db.getAllAsync<any>(`SELECT * FROM evidences WHERE activityId = ? ORDER BY capturedAt DESC`, [selected.id]));
+  };
+
+  const handleDeleteEvidence = (ev: any) => {
+    if (!selected) return;
+    Alert.alert('Eliminar evidencia', '¿Seguro que desea eliminar esta evidencia? Quedará trazabilidad en el servidor.', [
+      { text: 'Cancelar', style: 'cancel' },
+      {
+        text: 'Eliminar',
+        style: 'destructive',
+        onPress: async () => {
+          const db = await getDb();
+          await db.runAsync(`DELETE FROM evidences WHERE id = ?`, [ev.id]);
+          if (ev.fieldKey && Array.isArray(formData[ev.fieldKey])) {
+            const nextArr = (formData[ev.fieldKey] as string[]).filter((x) => x !== ev.id);
+            const nextData = { ...formData, [ev.fieldKey]: nextArr };
+            setFormData(nextData);
+            await db.runAsync(`UPDATE activities SET data = ?, updatedAt = ? WHERE id = ?`, [
+              JSON.stringify(nextData),
+              new Date().toISOString(),
+              selected.id,
+            ]);
+          }
+          if (ev.synced) {
+            await enqueueMutation('evidence', 'delete', ev.id, { activityId: selected.id });
+          }
+          await refreshLocal();
+          setActEvidences(await db.getAllAsync<any>(`SELECT * FROM evidences WHERE activityId = ? ORDER BY capturedAt DESC`, [selected.id]));
+          if (isOnline && autoSync && ev.synced) {
+            void handleSync(true);
+          }
+        },
+      },
+    ]);
   };
 
   const saveGeoFeature = async (input: {
@@ -744,6 +778,7 @@ function AppContent() {
                 <DynamicFormMobile
                 definition={formDef}
                 values={formData}
+                evidences={actEvidences}
                 onChange={(next) => {
                   setFormData(next);
                   if (missingKeys.length > 0) setMissingKeys([]);
@@ -781,13 +816,19 @@ function AppContent() {
                   ) : null}
                   <View style={{ flex: 1 }}>
                     <Text style={{ fontWeight: '600', fontSize: 12 }}>
-                      {ev.kind === 'AUDIO' ? '🎙️ ' : ev.kind === 'PHOTO' ? '📷 ' : ''}
+                      {ev.kind === 'AUDIO' ? '🎙️ ' : ev.kind === 'PHOTO' ? '📷 ' : ev.kind === 'SIGNATURE' ? '✍️ ' : ''}
                       {ev.kind} · {ev.fileName || ev.source} {ev.synced ? '✓ Sincronizada' : '⏳ Pendiente'}
                     </Text>
-                    {ev.transcript ? <Text style={{ fontSize: 11, color: COLORS.text, marginTop: 2 }}>“{ev.transcript}”</Text> : null}
+                    {ev.kind === 'SIGNATURE' ? <SignaturePreviewMobile note={ev.note} /> : null}
+                    {ev.kind !== 'SIGNATURE' && ev.transcript ? (
+                      <Text style={{ fontSize: 11, color: COLORS.text, marginTop: 2 }}>“{ev.transcript}”</Text>
+                    ) : null}
                     {ev.kind === 'AUDIO' && ev.fileUri ? <AudioPlayButton uri={ev.fileUri} /> : null}
                     <Text style={styles.meta}>{new Date(ev.capturedAt).toLocaleString('es-CL')}</Text>
                   </View>
+                  <TouchableOpacity onPress={() => handleDeleteEvidence(ev)} style={{ paddingHorizontal: 8, paddingVertical: 4 }}>
+                    <Text style={{ color: COLORS.danger, fontSize: 12, fontWeight: '700' }}>Borrar</Text>
+                  </TouchableOpacity>
                 </View>
               ))
             )}
