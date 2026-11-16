@@ -103,6 +103,7 @@ function AppContent() {
   const [previewPhotoUri, setPreviewPhotoUri] = useState<string | null>(null);
   const [missingKeys, setMissingKeys] = useState<string[]>([]);
   const syncingRef = useRef(false);
+  const resyncNeededRef = useRef(false);
   const selectedIdRef = useRef<string | null>(null);
   selectedIdRef.current = selected?.id ?? null;
 
@@ -158,10 +159,14 @@ function AppContent() {
     }
   };
 
-  const handleSync = async (silent = false) => {
-    if (syncingRef.current) return;
+  const handleSync = async (silent = false): Promise<boolean> => {
+    if (syncingRef.current) {
+      resyncNeededRef.current = true;
+      return false;
+    }
     syncingRef.current = true;
     setSyncing(true);
+    let ok = false;
     try {
       const db = await getDb();
       if (!silent) {
@@ -169,6 +174,7 @@ function AppContent() {
         await db.runAsync(`UPDATE sync_queue SET status = 'PENDING', error = NULL WHERE status = 'REJECTED'`);
       }
       const summary = await syncAll();
+      ok = true;
       await refreshLocal();
       const rejectedCntRow = await db.getFirstAsync<{ cnt: number }>(
         `SELECT COUNT(*) as cnt FROM sync_queue WHERE status = 'REJECTED'`,
@@ -192,6 +198,7 @@ function AppContent() {
         );
       }
     } catch (e: any) {
+      ok = false;
       await refreshLocal();
       if (!silent) {
         Alert.alert('Modo Sin Conexión (Offline)', `Los datos locales se mantienen seguros. (${e.message})`);
@@ -199,6 +206,23 @@ function AppContent() {
     } finally {
       syncingRef.current = false;
       setSyncing(false);
+      if (resyncNeededRef.current) {
+        resyncNeededRef.current = false;
+        void handleSync(true);
+      }
+    }
+    return ok;
+  };
+
+  const syncNowIfOnline = async (): Promise<boolean> => {
+    try {
+      const s = await Network.getNetworkStateAsync();
+      const onlineNow = Boolean(s.isConnected && s.isInternetReachable !== false);
+      setIsOnline(onlineNow);
+      if (!onlineNow) return false;
+      return await handleSync(true);
+    } catch {
+      return false;
     }
   };
 
@@ -298,14 +322,12 @@ function AppContent() {
     await refreshLocal();
     const folio = selected.folio;
     setSelected(null);
-    if (isOnline && autoSync) {
-      void handleSync(true);
-    }
+    const syncedNow = await syncNowIfOnline();
     Alert.alert(
       '¡Guardado con éxito!',
-      isOnline && autoSync
-        ? `El avance de ${folio} se guardó y se está sincronizando automáticamente.`
-        : `El avance de ${folio} se guardó en el dispositivo y quedó listo para sincronizar.`,
+      syncedNow
+        ? `El avance de ${folio} se guardó y sincronizó con la plataforma web al instante.`
+        : `El avance de ${folio} se guardó en el dispositivo y se sincronizará al recuperar conexión.`,
     );
   };
 
@@ -357,10 +379,13 @@ function AppContent() {
     const updated = { ...selected, data: JSON.stringify(formData), status: tr.to, updatedAt: now };
     await refreshLocal();
     await openActivity(updated);
-    if (isOnline && autoSync) {
-      void handleSync(true);
-    }
-    Alert.alert('Estado Actualizado', `Formulario guardado y actividad actualizada a ${tr.to}.`);
+    const syncedNow = await syncNowIfOnline();
+    Alert.alert(
+      'Estado Actualizado',
+      syncedNow
+        ? `Formulario guardado y actividad actualizada a ${tr.to} en la nube.`
+        : `Formulario guardado y actividad actualizada a ${tr.to} (se sincronizará al recuperar conexión).`,
+    );
   };
 
   const handleCaptureEvidence = async (ev: CapturedEvidence) => {
@@ -452,10 +477,13 @@ function AppContent() {
     setShowGeoModal(false);
     await refreshLocal();
     setActGeo(await db.getAllAsync<any>(`SELECT * FROM geo_features WHERE activityId = ? ORDER BY capturedAt DESC`, [selected.id]));
-    if (isOnline && autoSync) {
-      void handleSync(true);
-    }
-    Alert.alert('Geometría Guardada', `${input.kind} "${input.label}" guardado.`);
+    const syncedNow = await syncNowIfOnline();
+    Alert.alert(
+      'Geometría Guardada',
+      syncedNow
+        ? `${input.kind} "${input.label}" guardado y sincronizado en la web.`
+        : `${input.kind} "${input.label}" guardado localmente (pendiente de sincronizar).`,
+    );
   };
 
   const handleCreateActivity = async (input: {
@@ -527,9 +555,7 @@ function AppContent() {
       version: 1,
       updatedAt: now,
     });
-    if (isOnline && autoSync) {
-      void handleSync(true);
-    }
+    void syncNowIfOnline();
   };
 
   const handleScanOtQr = async (raw: string) => {
