@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { evaluateForm, type FormDefinition, type FormContext, type FormValues } from '@terreno/shared';
 import { API_BASE, getToken } from '@/lib/api';
 import { AddressAutocomplete } from './AddressAutocomplete';
+import { SignaturePreview } from './SignaturePreview';
 
 function AuthEvidencePreview({ ev }: { ev: { id: string; kind: string; fileName?: string | null; transcript?: string | null } }) {
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
@@ -66,7 +67,7 @@ export function DynamicFormRenderer({
   onChange: (next: FormValues) => void;
   context?: FormContext;
   readOnly?: boolean;
-  evidences?: { id: string; fieldKey?: string | null; fileName?: string | null; kind: string; transcript?: string | null }[];
+  evidences?: { id: string; fieldKey?: string | null; fileName?: string | null; kind: string; transcript?: string | null; note?: string | null }[];
   onUploadFieldEvidence?: (
     fieldKey: string,
     kind: 'PHOTO' | 'FILE' | 'AUDIO',
@@ -337,8 +338,21 @@ export function DynamicFormRenderer({
                 )}
               </div>
             ) : f.type === 'signature' ? (
-              <div className="text-xs text-slate-500 bg-slate-50 border border-dashed border-slate-300 rounded-lg p-3">
-                Campo de firma digital. Firmas registradas: {Array.isArray(val) ? val.length : 0}. Capture la firma desde la app móvil.
+              <div className="bg-slate-50 border border-dashed border-slate-300 rounded-lg p-3 space-y-2">
+                <div className="text-xs text-slate-600">
+                  ✍️ Firmas registradas: <b>{Array.isArray(val) ? val.length : evidences.filter((e) => e.fieldKey === f.key && e.kind === 'SIGNATURE').length}</b>
+                </div>
+                {evidences.filter((e) => e.fieldKey === f.key && e.kind === 'SIGNATURE').length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {evidences
+                      .filter((e) => e.fieldKey === f.key && e.kind === 'SIGNATURE')
+                      .map((ev) => (
+                        <SignaturePreview key={ev.id} note={ev.note} />
+                      ))}
+                  </div>
+                ) : (
+                  <div className="text-[11px] text-slate-400">Capture la firma desde la app móvil.</div>
+                )}
               </div>
             ) : f.type === 'text' && !isDisabled && /ubicaci|direcci|comuna|sector|address/i.test(`${f.key} ${f.label}`) ? (
               <AddressAutocomplete

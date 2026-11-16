@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { AppShell } from '@/components/AppShell';
 import { DynamicFormRenderer } from '@/components/DynamicFormRenderer';
+import { SignaturePreview } from '@/components/SignaturePreview';
 import { MapClient } from '@/components/MapClient';
 import { api, API_BASE, getToken } from '@/lib/api';
 import { closeRing, type Position } from '@terreno/shared';
@@ -428,6 +429,11 @@ function ActividadDetailInner() {
                         </a>
                       )}
                     </div>
+                    {ev.kind === 'SIGNATURE' && ev.note && (
+                      <div className="pt-1">
+                        <SignaturePreview note={ev.note} />
+                      </div>
+                    )}
                     {ev.kind === 'AUDIO' && (
                       <audio id={`audio-${ev.id}`} controls className="w-full h-8 hidden" />
                     )}
