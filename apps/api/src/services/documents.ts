@@ -56,14 +56,16 @@ function extractAllPositions(activity: any): [number, number][] {
   return pts.filter(([lng, lat]) => Number.isFinite(lng) && Number.isFinite(lat));
 }
 
-async function fetchOsmBackground(pts: [number, number][]): Promise<{
+interface OsmMapResult {
   tiles: OsmMapTile[];
   zoom: number;
-  minTileX: number;
-  minTileY: number;
+  startTileX: number;
+  startTileY: number;
   cols: number;
   rows: number;
-} | null> {
+}
+
+async function fetchOsmBackground(pts: [number, number][], cols = 4, rows = 2): Promise<OsmMapResult | null> {
   if (pts.length === 0) return null;
   let minLng = Infinity,
     maxLng = -Infinity,
@@ -77,29 +79,42 @@ async function fetchOsmBackground(pts: [number, number][]): Promise<{
   }
   const cLng = (minLng + maxLng) / 2;
   const cLat = (minLat + maxLat) / 2;
-  const span = Math.max(maxLng - minLng, maxLat - minLat);
-  let zoom = 15;
-  if (span > 0.4) zoom = 10;
-  else if (span > 0.15) zoom = 11;
-  else if (span > 0.06) zoom = 12;
-  else if (span > 0.025) zoom = 13;
-  else if (span > 0.008) zoom = 14;
 
-  const cx = Math.floor(lngToTileX(cLng, zoom));
-  const cy = Math.floor(latToTileY(cLat, zoom));
-  const cols = 3;
-  const rows = 2;
-  const minTileX = cx - 1;
-  const minTileY = cy;
+  // Choose highest zoom (up to 16) where all points fit comfortably inside cols x rows tiles
+  let zoom = 15;
+  if (pts.length > 1 && (maxLng > minLng || maxLat > minLat)) {
+    for (let z = 16; z >= 5; z--) {
+      const spanX = lngToTileX(maxLng, z) - lngToTileX(minLng, z);
+      const spanY = latToTileY(minLat, z) - latToTileY(maxLat, z);
+      if (spanX <= cols * 0.72 && spanY <= rows * 0.72) {
+        zoom = z;
+        break;
+      }
+      zoom = z;
+    }
+  }
+
+  const centerTileX = lngToTileX(cLng, zoom);
+  const centerTileY = latToTileY(cLat, zoom);
+  const startTileX = centerTileX - cols / 2;
+  const startTileY = centerTileY - rows / 2;
+
+  const firstTileX = Math.floor(startTileX);
+  const firstTileY = Math.floor(startTileY);
+  const lastTileX = Math.floor(startTileX + cols - 1e-6);
+  const lastTileY = Math.floor(startTileY + rows - 1e-6);
+
+  const coordsList: { tx: number; ty: number }[] = [];
+  for (let ty = firstTileY; ty <= lastTileY; ty++) {
+    for (let tx = firstTileX; tx <= lastTileX; tx++) {
+      coordsList.push({ tx, ty });
+    }
+  }
 
   const tiles: OsmMapTile[] = [];
   try {
     await Promise.all(
-      Array.from({ length: cols * rows }).map(async (_, idx) => {
-        const dx = idx % cols;
-        const dy = Math.floor(idx / cols);
-        const tx = minTileX + dx;
-        const ty = minTileY + dy;
+      coordsList.map(async ({ tx, ty }) => {
         const url = `https://tile.openstreetmap.org/${zoom}/${tx}/${ty}.png`;
         const res = await fetch(url, {
           headers: { 'User-Agent': 'TerrenoCNR-OfficialPDF/1.0' },
@@ -115,7 +130,53 @@ async function fetchOsmBackground(pts: [number, number][]): Promise<{
     return null;
   }
 
-  return tiles.length > 0 ? { tiles, zoom, minTileX, minTileY, cols, rows } : null;
+  return tiles.length > 0 ? { tiles, zoom, startTileX, startTileY, cols, rows } : null;
+}
+
+function getSvgPathsBounds(paths: string[]): { minX: number; minY: number; maxX: number; maxY: number } | null {
+  let minX = Infinity,
+    minY = Infinity,
+    maxX = -Infinity,
+    maxY = -Infinity;
+  let found = false;
+  const pairRe = /(-?\d+(?:\.\d+)?)[,\s]+(-?\d+(?:\.\d+)?)/g;
+  for (const d of paths) {
+    let m: RegExpExecArray | null;
+    while ((m = pairRe.exec(d)) !== null) {
+      const x = Number(m[1]);
+      const y = Number(m[2]);
+      if (Number.isFinite(x) && Number.isFinite(y)) {
+        found = true;
+        if (x < minX) minX = x;
+        if (x > maxX) maxX = x;
+        if (y < minY) minY = y;
+        if (y > maxY) maxY = y;
+      }
+    }
+  }
+  return found ? { minX, minY, maxX, maxY } : null;
+}
+
+function formatGeoSummary(gf: any): string {
+  const g = gf.geometry;
+  if (!g || !g.coordinates) return 'Sin coordenadas';
+  if (g.type === 'Point' && Array.isArray(g.coordinates)) {
+    const [lng, lat] = g.coordinates;
+    return `${Number(lat).toFixed(5)}, ${Number(lng).toFixed(5)}`;
+  }
+  if (g.type === 'LineString' && Array.isArray(g.coordinates)) {
+    const pts = g.coordinates as [number, number][];
+    if (pts.length === 0) return 'Línea vacía';
+    return `${pts.length} vértices · Inicio ${Number(pts[0]![1]).toFixed(4)}, ${Number(pts[0]![0]).toFixed(4)}`;
+  }
+  if (g.type === 'Polygon' && Array.isArray(g.coordinates)) {
+    const ring = (g.coordinates[0] || []) as [number, number][];
+    if (ring.length === 0) return 'Polígono vacío';
+    const avgLng = ring.reduce((s, p) => s + Number(p[0]), 0) / ring.length;
+    const avgLat = ring.reduce((s, p) => s + Number(p[1]), 0) / ring.length;
+    return `${ring.length} vértices · Centro ${avgLat.toFixed(4)}, ${avgLng.toFixed(4)}`;
+  }
+  return 'Geometría';
 }
 
 function loadBrandLogo(): Buffer | null {
@@ -276,7 +337,7 @@ function buildPdf(ctx: {
   qrBuffer: Buffer;
   logoBuf: Buffer | null;
   photos: LoadedPhoto[];
-  osmBg: Awaited<ReturnType<typeof fetchOsmBackground>>;
+  osmBg: OsmMapResult | null;
   auditLogs: any[];
 }): Promise<Buffer> {
   const { activity, kind, code, qrBuffer, logoBuf, photos, osmBg, auditLogs } = ctx;
@@ -326,77 +387,92 @@ function buildPdf(ctx: {
     y = 18;
     if (logoBuf) {
       try {
-        doc.image(logoBuf, 40, y, { height: 48 });
+        doc.image(logoBuf, 40, y, { height: 46 });
       } catch {
-        doc.fillColor(PRIMARY).font('Helvetica-Bold').fontSize(15).text('CNR · Comisión Nacional de Riego', 40, y + 10);
+        doc.fillColor(PRIMARY).font('Helvetica-Bold').fontSize(14).text('CNR · Comisión Nacional de Riego', 40, y + 10);
       }
     } else {
-      doc.fillColor(PRIMARY).font('Helvetica-Bold').fontSize(15).text('CNR · Comisión Nacional de Riego', 40, y + 10);
+      doc.fillColor(PRIMARY).font('Helvetica-Bold').fontSize(14).text('CNR · Comisión Nacional de Riego', 40, y + 10);
     }
 
-    // Título derecho + QR
-    doc.fillColor(MUTED).font('Helvetica-Bold').fontSize(8).text('MINISTERIO DE AGRICULTURA · GOBIERNO DE CHILE', 180, y + 2, {
-      width: 280,
+    // Título derecho + QR (calculando altura dinámica para evitar superposiciones)
+    const hdrX = 165;
+    const hdrW = 300;
+    const docTitle =
+      kind === 'VOUCHER' ? 'COMPROBANTE OFICIAL DE RECEPCIÓN' : 'INFORME TÉCNICO DE INSPECCIÓN EN TERRENO';
+    doc.fillColor(MUTED).font('Helvetica-Bold').fontSize(7.5).text('MINISTERIO DE AGRICULTURA · GOBIERNO DE CHILE', hdrX, y + 2, {
+      width: hdrW,
       align: 'right',
     });
-    doc.fillColor(PRIMARY).font('Helvetica-Bold').fontSize(12).text(
-      kind === 'VOUCHER' ? 'COMPROBANTE OFICIAL DE RECEPCIÓN' : 'INFORME TÉCNICO DE INSPECCIÓN EN TERRENO',
-      180,
-      y + 15,
-      { width: 280, align: 'right' },
-    );
-    doc.fillColor(TEXT).font('Helvetica').fontSize(8.5).text(
+    doc.fillColor(PRIMARY).font('Helvetica-Bold').fontSize(10.5);
+    const titleH = doc.heightOfString(docTitle, { width: hdrW });
+    doc.text(docTitle, hdrX, y + 14, { width: hdrW, align: 'right' });
+    doc.fillColor(TEXT).font('Helvetica').fontSize(8).text(
       `Folio: ${activity.folio}  |  Emisión: ${new Date().toLocaleString('es-CL')}`,
-      180,
-      y + 33,
-      { width: 280, align: 'right' },
+      hdrX,
+      y + 18 + titleH,
+      { width: hdrW, align: 'right' },
     );
 
-    doc.image(qrBuffer, 485, y - 2, { width: 68 });
-    doc.fillColor(MUTED).font('Helvetica').fontSize(6.5).text(`Verificación: ${code}`, 478, y + 67, { width: 82, align: 'center' });
+    doc.image(qrBuffer, 483, y - 2, { width: 66 });
+    doc.fillColor(MUTED).font('Helvetica').fontSize(6).text(`Verificación: ${code}`, 466, y + 66, { width: 100, align: 'center' });
 
-    y = 100;
+    y = Math.max(102, y + 36 + titleH);
     doc.moveTo(40, y).lineTo(40 + contentW, y).lineWidth(1).strokeColor(PRIMARY).stroke();
     y += 12;
 
     // ==================== 1. FICHA GENERAL OT ====================
     drawSectionHeader('1. Información General de la Orden de Trabajo');
-    doc.roundedRect(40, y, contentW, 102, 4).fillAndStroke(BG_SOFT, BORDER);
-
     const col1X = 52;
     const col2X = 310;
-    doc.fillColor(TEXT).font('Helvetica-Bold').fontSize(9).text('Título:', col1X, y + 10);
-    doc.font('Helvetica').text(activity.title, col1X + 45, y + 10, { width: 440 });
-
-    doc.font('Helvetica-Bold').text('Proceso:', col1X, y + 28);
-    doc.font('Helvetica').text(activity.type?.name || 'N/A', col1X + 50, y + 28, { width: 195 });
-    doc.font('Helvetica-Bold').text('Unidad:', col2X, y + 28);
-    doc.font('Helvetica').text(activity.unit?.name || 'General', col2X + 45, y + 28, { width: 190 });
-
-    doc.font('Helvetica-Bold').text('Estado:', col1X, y + 44);
-    doc.font('Helvetica').text(`${activity.status} (${activity.progress ?? 0}%)`, col1X + 45, y + 44);
-    doc.font('Helvetica-Bold').text('Prioridad:', col2X, y + 44);
-    doc.font('Helvetica').text(activity.priority, col2X + 52, y + 44);
-
-    doc.font('Helvetica-Bold').text('Creado por:', col1X, y + 60);
-    doc.font('Helvetica').text(
-      `${activity.createdBy?.name || 'Sistema'} (${new Date(activity.createdAt).toLocaleString('es-CL')})`,
-      col1X + 58,
-      y + 60,
-      { width: 195 },
-    );
-    doc.font('Helvetica-Bold').text('Asignado a:', col2X, y + 60);
-    doc.font('Helvetica').text(activity.assignee?.name || 'Sin asignar', col2X + 58, y + 60, { width: 175 });
-
-    doc.font('Helvetica-Bold').text('Ubicación:', col1X, y + 78);
+    const createdTxt = `${activity.createdBy?.name || 'Sistema'} (${new Date(activity.createdAt).toLocaleString('es-CL')})`;
     const locTxt = activity.address
       ? `${activity.address}${typeof activity.lat === 'number' ? ` (${activity.lat.toFixed(5)}, ${activity.lng.toFixed(5)})` : ''}`
       : typeof activity.lat === 'number'
         ? `${activity.lat.toFixed(5)}, ${activity.lng.toFixed(5)}`
         : 'Sin dirección registrada';
-    doc.font('Helvetica').text(locTxt, col1X + 55, y + 78, { width: 435 });
 
-    y += 112;
+    doc.font('Helvetica').fontSize(8.5);
+    const titleBoxH = Math.max(12, doc.heightOfString(activity.title, { width: 440 }));
+    const procH = Math.max(12, doc.heightOfString(activity.type?.name || 'N/A', { width: 192 }));
+    const unitH = Math.max(12, doc.heightOfString(activity.unit?.name || 'General', { width: 185 }));
+    const row2H = Math.max(procH, unitH);
+    const createdH = Math.max(12, doc.heightOfString(createdTxt, { width: 190 }));
+    const assigneeH = Math.max(12, doc.heightOfString(activity.assignee?.name || 'Sin asignar', { width: 175 }));
+    const row4H = Math.max(createdH, assigneeH);
+    const locH = Math.max(12, doc.heightOfString(locTxt, { width: 432 }));
+
+    const cardH = 14 + titleBoxH + 6 + row2H + 6 + 14 + 6 + row4H + 6 + locH + 12;
+    ensureSpace(cardH + 10);
+    doc.roundedRect(40, y, contentW, cardH, 4).fillAndStroke(BG_SOFT, BORDER);
+
+    let fy = y + 10;
+    doc.fillColor(TEXT).font('Helvetica-Bold').fontSize(8.5).text('Título:', col1X, fy);
+    doc.font('Helvetica').text(activity.title, col1X + 45, fy, { width: 440 });
+    fy += titleBoxH + 6;
+
+    doc.font('Helvetica-Bold').text('Proceso:', col1X, fy);
+    doc.font('Helvetica').text(activity.type?.name || 'N/A', col1X + 50, fy, { width: 192 });
+    doc.font('Helvetica-Bold').text('Unidad:', col2X, fy);
+    doc.font('Helvetica').text(activity.unit?.name || 'General', col2X + 45, fy, { width: 185 });
+    fy += row2H + 6;
+
+    doc.font('Helvetica-Bold').text('Estado:', col1X, fy);
+    doc.font('Helvetica').text(`${activity.status} (${activity.progress ?? 0}%)`, col1X + 45, fy);
+    doc.font('Helvetica-Bold').text('Prioridad:', col2X, fy);
+    doc.font('Helvetica').text(activity.priority, col2X + 52, fy);
+    fy += 20;
+
+    doc.font('Helvetica-Bold').text('Creado por:', col1X, fy);
+    doc.font('Helvetica').text(createdTxt, col1X + 58, fy, { width: 190 });
+    doc.font('Helvetica-Bold').text('Asignado a:', col2X, fy);
+    doc.font('Helvetica').text(activity.assignee?.name || 'Sin asignar', col2X + 58, fy, { width: 175 });
+    fy += row4H + 6;
+
+    doc.font('Helvetica-Bold').text('Ubicación:', col1X, fy);
+    doc.font('Helvetica').text(locTxt, col1X + 55, fy, { width: 432 });
+
+    y += cardH + 12;
 
     if (activity.description) {
       ensureSpace(36);
@@ -412,26 +488,31 @@ function buildPdf(ctx: {
 
     if (answerFields.length > 0) {
       drawSectionHeader('2. Respuestas del Formulario Digital en Terreno');
-      for (const f of answerFields) {
+      answerFields.forEach((f, idx) => {
+        const labelText = String(f.label || f.key || '');
         const valText = formatFormValue(f, formData[f.key]);
-        const rowH = Math.max(20, doc.heightOfString(valText, { width: 295 }) + 8);
+        doc.font('Helvetica-Bold').fontSize(8.5);
+        const labelH = doc.heightOfString(labelText, { width: 192 });
+        doc.font('Helvetica').fontSize(8.5);
+        const valH = doc.heightOfString(valText, { width: 292 });
+        const rowH = Math.max(22, Math.max(labelH, valH) + 12);
         ensureSpace(rowH + 4);
-        doc.rect(40, y, contentW, rowH).fillAndStroke('#ffffff', BORDER);
-        doc.fillColor(MUTED).font('Helvetica-Bold').fontSize(8.5).text(f.label || f.key, 48, y + 6, { width: 195 });
-        doc.fillColor(TEXT).font('Helvetica').fontSize(8.5).text(valText, 250, y + 6, { width: 295 });
+        doc.rect(40, y, contentW, rowH).fillAndStroke(idx % 2 === 0 ? '#ffffff' : '#f8fafc', BORDER);
+        doc.fillColor(MUTED).font('Helvetica-Bold').fontSize(8.5).text(labelText, 48, y + 6, { width: 192 });
+        doc.fillColor(TEXT).font('Helvetica').fontSize(8.5).text(valText, 250, y + 6, { width: 292 });
         y += rowH;
-      }
+      });
       y += 12;
     }
 
     // ==================== 3. MAPA DE UBICACIÓN Y TRAZADO ====================
     const pts = extractAllPositions(activity);
     if (pts.length > 0 || activity.geoFeatures.length > 0) {
-      drawSectionHeader('3. Mapa de Ubicación y Trazado Geográfico');
       const mapX = 40;
-      const mapW = contentW;
-      const mapH = 215;
-      ensureSpace(mapH + 35);
+      const mapW = contentW; // 515
+      const mapH = osmBg ? Math.round((mapW / osmBg.cols) * osmBg.rows) : 230;
+      ensureSpace(mapH + 85);
+      drawSectionHeader('3. Mapa de Ubicación y Trazado Geográfico');
 
       doc.save();
       doc.rect(mapX, y, mapW, mapH).clip();
@@ -440,13 +521,12 @@ function buildPdf(ctx: {
       // Project helper
       let toCanvas: (lng: number, lat: number) => [number, number];
       if (osmBg) {
-        const tilePxW = mapW / osmBg.cols;
-        const tilePxH = mapH / osmBg.rows;
+        const tilePx = mapW / osmBg.cols;
         for (const t of osmBg.tiles) {
-          const dx = t.tileX - osmBg.minTileX;
-          const dy = t.tileY - osmBg.minTileY;
+          const dx = t.tileX - osmBg.startTileX;
+          const dy = t.tileY - osmBg.startTileY;
           try {
-            doc.image(t.buffer, mapX + dx * tilePxW, y + dy * tilePxH, { width: tilePxW + 0.5, height: tilePxH + 0.5 });
+            doc.image(t.buffer, mapX + dx * tilePx, y + dy * tilePx, { width: tilePx + 0.6, height: tilePx + 0.6 });
           } catch {
             // ignore tile render error
           }
@@ -454,7 +534,7 @@ function buildPdf(ctx: {
         toCanvas = (lng: number, lat: number) => {
           const tx = lngToTileX(lng, osmBg.zoom);
           const ty = latToTileY(lat, osmBg.zoom);
-          return [mapX + (tx - osmBg.minTileX) * tilePxW, y + (ty - osmBg.minTileY) * tilePxH];
+          return [mapX + (tx - osmBg.startTileX) * tilePx, y + (ty - osmBg.startTileY) * tilePx];
         };
       } else {
         // Offline vector grid fallback
@@ -530,26 +610,43 @@ function buildPdf(ctx: {
       }
       doc.restore();
 
-      // Map border & legend
+      // Map border & vectorial legend (sin caracteres Unicode rotos)
       doc.rect(mapX, y, mapW, mapH).lineWidth(1).strokeColor(BORDER).stroke();
-      y += mapH + 5;
-      doc.fillColor(MUTED).font('Helvetica').fontSize(7.5).text(
-        'Leyenda: ● Azul = Punto GPS   ━ Azul/Ámbar = Línea / Recorrido   ■ Verde = Polígono   ● Rojo = Ubicación OT',
-        40,
-        y,
-      );
-      y += 15;
+      y += mapH + 7;
+
+      let lx = 44;
+      const lyCenter = y + 4;
+      doc.circle(lx, lyCenter, 3.5).fill(PRIMARY);
+      doc.fillColor(MUTED).font('Helvetica').fontSize(7.5).text('Punto GPS', lx + 7, y);
+      lx += 62;
+      doc.moveTo(lx, lyCenter).lineTo(lx + 12, lyCenter).lineWidth(2.2).strokeColor(PRIMARY).stroke();
+      doc.fillColor(MUTED).text('Línea /', lx + 16, y);
+      lx += 48;
+      doc.moveTo(lx, lyCenter).lineTo(lx + 12, lyCenter).lineWidth(2.2).strokeColor('#d97706').stroke();
+      doc.fillColor(MUTED).text('Recorrido', lx + 16, y);
+      lx += 58;
+      doc.rect(lx, y + 1, 7, 7).fill(GREEN);
+      doc.fillColor(MUTED).text('Polígono', lx + 11, y);
+      lx += 54;
+      doc.circle(lx + 3, lyCenter, 3.5).fill(RED);
+      doc.fillColor(MUTED).text('Ubicación OT', lx + 10, y);
+      y += 16;
 
       // Table of geoFeatures
       for (const gf of activity.geoFeatures) {
-        const coords = gf.geometry?.coordinates ? JSON.stringify(gf.geometry.coordinates) : 'S/C';
-        ensureSpace(24);
-        doc.rect(40, y, contentW, 20).fillAndStroke('#ffffff', BORDER);
-        doc.fillColor(PRIMARY).font('Helvetica-Bold').fontSize(8).text(`${gf.code} (${gf.kind})`, 46, y + 6, { width: 110 });
-        doc.fillColor(TEXT).font('Helvetica').fontSize(8).text(gf.label || 'Sin etiqueta', 160, y + 6, { width: 130 });
-        doc.fillColor(MUTED).text(`±${gf.accuracy ? Math.round(gf.accuracy) : '?'}m`, 295, y + 6, { width: 45 });
-        doc.text(coords.slice(0, 42) + (coords.length > 42 ? '…' : ''), 345, y + 6, { width: 205 });
-        y += 20;
+        const labelStr = gf.label || 'Sin etiqueta';
+        const coordSummary = formatGeoSummary(gf);
+        doc.font('Helvetica').fontSize(8);
+        const labelH = doc.heightOfString(labelStr, { width: 150 });
+        const coordH = doc.heightOfString(coordSummary, { width: 185 });
+        const rowH = Math.max(20, Math.max(labelH, coordH) + 10);
+        ensureSpace(rowH + 4);
+        doc.rect(40, y, contentW, rowH).fillAndStroke('#ffffff', BORDER);
+        doc.fillColor(PRIMARY).font('Helvetica-Bold').fontSize(8).text(`${gf.code} (${gf.kind})`, 46, y + 5, { width: 112 });
+        doc.fillColor(TEXT).font('Helvetica').fontSize(8).text(labelStr, 162, y + 5, { width: 150 });
+        doc.fillColor(MUTED).text(`±${gf.accuracy ? Math.round(gf.accuracy) : '?'}m`, 316, y + 5, { width: 42 });
+        doc.text(coordSummary, 362, y + 5, { width: 185 });
+        y += rowH;
       }
       y += 12;
     }
@@ -594,26 +691,50 @@ function buildPdf(ctx: {
           paths = [];
         }
         if (paths.length > 0) {
-          ensureSpace(95);
-          doc.roundedRect(40, y, 260, 82, 4).fillAndStroke('#ffffff', BORDER);
+          ensureSpace(105);
+          const cardW = 280;
+          const cardH = 92;
+          doc.roundedRect(40, y, cardW, cardH, 4).fillAndStroke('#ffffff', BORDER);
           doc.fillColor(PRIMARY).font('Helvetica-Bold').fontSize(8).text(
             `Firma Digital (${sig.fileName || sig.uploadedBy?.name || 'Inspector'})`,
             48,
-            y + 6,
+            y + 7,
+            { width: cardW - 16 },
           );
+
+          const sigBoxX = 48;
+          const sigBoxY = y + 22;
+          const sigBoxW = cardW - 16;
+          const sigBoxH = 48;
+          const bounds = getSvgPathsBounds(paths);
+
           doc.save();
-          doc.translate(50, y + 18);
-          doc.scale(0.55);
-          for (const d of paths) {
-            doc.path(d).lineWidth(3).strokeColor('#0f172a').stroke();
+          doc.rect(sigBoxX, sigBoxY, sigBoxW, sigBoxH).clip();
+          if (bounds) {
+            const spanX = Math.max(10, bounds.maxX - bounds.minX);
+            const spanY = Math.max(10, bounds.maxY - bounds.minY);
+            const pad = 4;
+            const s = Math.min((sigBoxW - pad * 2) / spanX, (sigBoxH - pad * 2) / spanY);
+            const drawW = spanX * s;
+            const drawH = spanY * s;
+            const offsetX = sigBoxX + (sigBoxW - drawW) / 2;
+            const offsetY = sigBoxY + (sigBoxH - drawH) / 2;
+            doc.translate(offsetX, offsetY);
+            doc.scale(s);
+            doc.translate(-bounds.minX, -bounds.minY);
+            for (const d of paths) {
+              doc.path(d).lineWidth(Math.max(1.2, 1.8 / s)).strokeColor('#0f172a').stroke();
+            }
           }
           doc.restore();
+
           doc.fillColor(MUTED).font('Helvetica').fontSize(7).text(
             `Capturada: ${new Date(sig.capturedAt).toLocaleString('es-CL')}`,
             48,
-            y + 68,
+            y + 76,
+            { width: cardW - 16 },
           );
-          y += 92;
+          y += cardH + 10;
         }
       }
 
@@ -675,13 +796,15 @@ function buildPdf(ctx: {
     const range = doc.bufferedPageRange();
     for (let i = range.start; i < range.start + range.count; i++) {
       doc.switchToPage(i);
-      const bottomY = doc.page.height - 38;
+      // Evita que PDFKit agregue páginas en blanco al escribir debajo del margen inferior
+      doc.page.margins.bottom = 0;
+      const bottomY = doc.page.height - 32;
       doc.moveTo(40, bottomY - 6).lineTo(40 + contentW, bottomY - 6).lineWidth(0.7).strokeColor(BORDER).stroke();
       doc.fillColor(MUTED).font('Helvetica').fontSize(7).text(
         `Comisión Nacional de Riego (CNR) · Ley N° 19.799 · Verificación: ${code} · Página ${i + 1} de ${range.count}`,
         40,
         bottomY,
-        { width: contentW, align: 'center' },
+        { width: contentW, align: 'center', lineBreak: false },
       );
     }
 
