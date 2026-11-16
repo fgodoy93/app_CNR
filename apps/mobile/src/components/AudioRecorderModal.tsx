@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Modal, View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { Modal, View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import {
   AudioModule,
   RecordingPresets,
@@ -10,6 +10,7 @@ import {
   useAudioRecorderState,
 } from 'expo-audio';
 import * as Location from 'expo-location';
+import { apiFetch, getApiUrl, getToken } from '../api/client';
 import { COLORS } from '../theme';
 
 export interface RecordedAudioResult {
@@ -30,6 +31,35 @@ function formatDuration(ms: number): string {
   return `${m}:${s}`;
 }
 
+function uploadAudioForTranscription(url: string, token: string | null, uri: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const fd = new FormData();
+    fd.append('file', {
+      uri,
+      name: `voz-${Date.now()}.m4a`,
+      type: 'audio/mp4',
+    } as any);
+
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', url);
+    if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try {
+          const parsed = JSON.parse(xhr.responseText) as { text?: string };
+          resolve((parsed.text || '').trim());
+        } catch {
+          reject(new Error('Respuesta inválida'));
+        }
+      } else {
+        reject(new Error(`HTTP ${xhr.status}`));
+      }
+    };
+    xhr.onerror = () => reject(new Error('Sin conexión'));
+    xhr.send(fd as any);
+  });
+}
+
 export function AudioRecorderModal({
   visible,
   initialTranscript = '',
@@ -48,6 +78,8 @@ export function AudioRecorderModal({
   const [recordedUri, setRecordedUri] = useState<string | null>(null);
   const [durationSec, setDurationSec] = useState(0);
   const [transcript, setTranscript] = useState(initialTranscript);
+  const [transcribing, setTranscribing] = useState(false);
+  const [sttStatus, setSttStatus] = useState<string | null>(null);
 
   const player = useAudioPlayer(recordedUri ? { uri: recordedUri } : null);
   const playerStatus = useAudioPlayerStatus(player);
@@ -57,8 +89,31 @@ export function AudioRecorderModal({
       setRecordedUri(null);
       setDurationSec(0);
       setTranscript(initialTranscript);
+      setTranscribing(false);
+      setSttStatus(null);
     }
   }, [visible, initialTranscript]);
+
+  const runTranscription = async (uri: string) => {
+    setTranscribing(true);
+    setSttStatus('Transcribiendo audio automáticamente...');
+    try {
+      await apiFetch('/api/v1/auth/me').catch(() => undefined);
+      const base = await getApiUrl();
+      const token = await getToken();
+      const text = await uploadAudioForTranscription(`${base}/api/v1/evidences/transcribe`, token, uri);
+      if (text) {
+        setTranscript(text);
+        setSttStatus('✓ Transcripción completada');
+      } else {
+        setSttStatus('No se detectó voz clara en el audio.');
+      }
+    } catch {
+      setSttStatus('Sin conexión al servidor: el audio se transcribirá automáticamente al sincronizar.');
+    } finally {
+      setTranscribing(false);
+    }
+  };
 
   const startRecording = async () => {
     const perm = await AudioModule.requestRecordingPermissionsAsync();
@@ -68,6 +123,7 @@ export function AudioRecorderModal({
     }
     await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
     setRecordedUri(null);
+    setSttStatus(null);
     await recorder.prepareToRecordAsync();
     recorder.record();
   };
@@ -79,6 +135,7 @@ export function AudioRecorderModal({
     if (recorder.uri) {
       setRecordedUri(recorder.uri);
       setDurationSec(sec);
+      void runTranscription(recorder.uri);
     }
   };
 
@@ -154,13 +211,31 @@ export function AudioRecorderModal({
             )}
           </View>
 
-          <Text style={styles.label}>Transcripción / Nota de voz (puede usar el dictado del teclado)</Text>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 14, marginBottom: 6 }}>
+            <Text style={[styles.label, { marginTop: 0, marginBottom: 0 }]}>Transcripción automática (editable)</Text>
+            {recordedUri && !recState.isRecording && !transcribing && (
+              <TouchableOpacity onPress={() => runTranscription(recordedUri)}>
+                <Text style={{ fontSize: 11, fontWeight: '700', color: COLORS.water }}>🔄 Re-transcribir</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+          {transcribing && (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+              <ActivityIndicator size="small" color={COLORS.primary} />
+              <Text style={{ fontSize: 12, color: COLORS.primary, fontWeight: '600' }}>Convirtiendo voz a texto...</Text>
+            </View>
+          )}
+          {!transcribing && sttStatus && (
+            <Text style={{ fontSize: 11, color: sttStatus.startsWith('✓') ? COLORS.green : COLORS.muted, marginBottom: 6 }}>
+              {sttStatus}
+            </Text>
+          )}
           <TextInput
             style={styles.input}
             multiline
             value={transcript}
             onChangeText={setTranscript}
-            placeholder="Escriba o dicte con el micrófono del teclado..."
+            placeholder="El texto aparecerá aquí automáticamente al detener la grabación..."
           />
 
           <View style={[styles.row, { marginTop: 14 }]}>

@@ -1,5 +1,6 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { createEvidence } from '../services/evidences';
+import { transcribeAudioBuffer } from '../services/stt';
 import { evidenceMetaSchema } from '@terreno/shared';
 import { badRequest, notFound } from '../lib/errors';
 import { prisma } from '../db';
@@ -36,6 +37,14 @@ export const evidencesRoutes: FastifyPluginAsync = async (app) => {
     reply.header('Content-Type', isSafeInline ? mime : 'application/octet-stream');
     reply.header('Content-Disposition', `${isSafeInline ? 'inline' : 'attachment'}; filename="${safeName}"`);
     return buf;
+  });
+
+  app.post('/transcribe', async (req) => {
+    const file = await req.file();
+    if (!file) throw badRequest('Se requiere un archivo de audio en el campo "file"');
+    const buf = await file.toBuffer();
+    const text = await transcribeAudioBuffer(buf, file.filename || 'audio.m4a', file.mimetype || 'audio/mp4');
+    return { text };
   });
 
   app.post('/', async (req, reply) => {

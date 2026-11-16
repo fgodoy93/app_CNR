@@ -1,33 +1,33 @@
 import { prisma } from '../db';
-import { config } from '../config';
 import { storage } from '../lib/storage';
 import { sha256 } from '../lib/crypto';
 import { getActivityForActor } from './activities';
+import { transcribeAudioBuffer } from './stt';
 import { badRequest } from '../lib/errors';
 import type { Actor } from '../types';
 import type { EvidenceKind } from '@prisma/client';
 
-async function transcribeAudioAsync(evidenceId: string, fileBuffer: Buffer, fileName: string, mimeType: string) {
-  if (!config.STT_API_URL) return;
+async function transcribeAudioAsync(
+  evidenceId: string,
+  activityId: string,
+  fieldKey: string | null | undefined,
+  fileBuffer: Buffer,
+  fileName: string,
+  mimeType: string,
+) {
   try {
-    const fd = new FormData();
-    fd.append('file', new Blob([new Uint8Array(fileBuffer)], { type: mimeType }), fileName);
-    fd.append('model', config.STT_MODEL);
-    fd.append('language', 'es');
-    const headers: Record<string, string> = {};
-    if (config.STT_API_KEY) headers.Authorization = `Bearer ${config.STT_API_KEY}`;
-
-    const res = await fetch(config.STT_API_URL, {
-      method: 'POST',
-      headers,
-      body: fd,
-      signal: AbortSignal.timeout(30000),
-    });
-    if (!res.ok) return;
-    const data = (await res.json()) as { text?: string };
-    const text = data?.text?.trim();
-    if (text) {
-      await prisma.evidence.update({ where: { id: evidenceId }, data: { transcript: text } });
+    const text = await transcribeAudioBuffer(fileBuffer, fileName, mimeType);
+    if (!text) return;
+    await prisma.evidence.update({ where: { id: evidenceId }, data: { transcript: text } });
+    if (fieldKey) {
+      const act = await prisma.activity.findUnique({ where: { id: activityId }, select: { data: true } });
+      const data = (act?.data as Record<string, unknown>) || {};
+      if (typeof data[fieldKey] !== 'string' || !String(data[fieldKey]).trim()) {
+        await prisma.activity.update({
+          where: { id: activityId },
+          data: { data: { ...data, [fieldKey]: text } as any },
+        });
+      }
     }
   } catch {
     // Best-effort background transcription
@@ -104,9 +104,11 @@ export async function createEvidence(
     },
   });
 
-  if (input.kind === 'AUDIO' && !input.transcript && fileBuffer && fileBuffer.length > 0 && config.STT_API_URL) {
+  if (input.kind === 'AUDIO' && !input.transcript && fileBuffer && fileBuffer.length > 0) {
     void transcribeAudioAsync(
       created.id,
+      input.activityId,
+      input.fieldKey,
       fileBuffer,
       input.fileName || `${created.id}.m4a`,
       input.mimeType || 'audio/mp4',
