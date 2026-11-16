@@ -213,13 +213,34 @@ export async function generateDocument(
       children: {
         where: { deletedAt: null },
         orderBy: { createdAt: 'asc' },
-        include: { assignee: { select: { name: true } }, type: { select: { name: true } } },
+        include: {
+          assignee: { select: { name: true } },
+          type: { select: { name: true } },
+          evidences: {
+            where: { deletedAt: null },
+            include: { uploadedBy: { select: { name: true } } },
+            orderBy: { capturedAt: 'asc' },
+          },
+          comments: {
+            include: { user: { select: { name: true } } },
+            orderBy: { createdAt: 'asc' },
+          },
+          transitions: {
+            where: { comment: { not: null } },
+            include: { user: { select: { name: true } } },
+            orderBy: { createdAt: 'asc' },
+          },
+        },
       },
       geoFeatures: { where: { deletedAt: null }, orderBy: { capturedAt: 'asc' } },
       evidences: {
         where: { deletedAt: null },
         include: { uploadedBy: { select: { name: true } } },
         orderBy: { capturedAt: 'asc' },
+      },
+      comments: {
+        include: { user: { select: { name: true } } },
+        orderBy: { createdAt: 'asc' },
       },
       transitions: {
         include: { user: true },
@@ -230,47 +251,37 @@ export async function generateDocument(
 
   if (!activity) throw notFound('Actividad no encontrada');
 
-  const allEvIds = (
-    await prisma.evidence.findMany({ where: { activityId: activity.id }, select: { id: true } })
-  ).map((e) => e.id);
-  const geoIds = activity.geoFeatures.map((g) => g.id);
-
-  const auditLogs = await prisma.auditLog.findMany({
-    where: {
-      OR: [
-        { entity: 'activity', entityId: activity.id },
-        ...(allEvIds.length ? [{ entity: 'evidence', entityId: { in: allEvIds } }] : []),
-        ...(geoIds.length ? [{ entity: 'geoFeature', entityId: { in: geoIds } }] : []),
-        { changes: { path: ['meta', 'activityId'], equals: activity.id } },
-      ],
-    },
-    orderBy: { createdAt: 'asc' },
-    take: 60,
-  });
-
-  // Load up to 6 photos from storage for embedding
-  const photos: LoadedPhoto[] = [];
-  for (const ev of activity.evidences) {
-    if (photos.length >= 6) break;
-    if (ev.kind === 'PHOTO' && ev.storageKey) {
-      const mime = (ev.mimeType || '').toLowerCase();
-      if (mime.includes('jpeg') || mime.includes('jpg') || mime.includes('png')) {
-        try {
-          const buf = await storage.get(ev.storageKey, ev.encrypted);
-          photos.push({
-            id: ev.id,
-            fileName: ev.fileName || 'Fotografía en terreno',
-            capturedAt: ev.capturedAt,
-            uploader: ev.uploadedBy?.name || 'Usuario',
-            lat: ev.lat,
-            lng: ev.lng,
-            buffer: buf,
-          });
-        } catch {
-          // ignore unreadable photo
+  const loadPhotoBuffers = async (evs: any[], limit = 6): Promise<LoadedPhoto[]> => {
+    const out: LoadedPhoto[] = [];
+    for (const ev of evs) {
+      if (out.length >= limit) break;
+      if (ev.kind === 'PHOTO' && ev.storageKey) {
+        const mime = (ev.mimeType || '').toLowerCase();
+        if (mime.includes('jpeg') || mime.includes('jpg') || mime.includes('png')) {
+          try {
+            const buf = await storage.get(ev.storageKey, ev.encrypted);
+            out.push({
+              id: ev.id,
+              fileName: ev.fileName || 'Fotografía en terreno',
+              capturedAt: ev.capturedAt,
+              uploader: ev.uploadedBy?.name || 'Usuario',
+              lat: ev.lat,
+              lng: ev.lng,
+              buffer: buf,
+            });
+          } catch {
+            // ignore unreadable photo
+          }
         }
       }
     }
+    return out;
+  };
+
+  const photos = await loadPhotoBuffers(activity.evidences, 6);
+  const visitPhotos: Record<string, LoadedPhoto[]> = {};
+  for (const child of activity.children ?? []) {
+    visitPhotos[child.id] = await loadPhotoBuffers(child.evidences ?? [], 6);
   }
 
   const pts = extractAllPositions(activity);
@@ -288,8 +299,8 @@ export async function generateDocument(
     qrBuffer,
     logoBuf,
     photos,
+    visitPhotos,
     osmBg,
-    auditLogs,
   });
 
   const hash = sha256(pdfBuffer);
@@ -343,10 +354,10 @@ function buildPdf(ctx: {
   qrBuffer: Buffer;
   logoBuf: Buffer | null;
   photos: LoadedPhoto[];
+  visitPhotos: Record<string, LoadedPhoto[]>;
   osmBg: OsmMapResult | null;
-  auditLogs: any[];
 }): Promise<Buffer> {
-  const { activity, kind, code, qrBuffer, logoBuf, photos, osmBg, auditLogs } = ctx;
+  const { activity, kind, code, qrBuffer, logoBuf, photos, visitPhotos, osmBg } = ctx;
   const PRIMARY = '#006fb3';
   const GREEN = '#146c43';
   const RED = '#e22c2c';
@@ -386,6 +397,81 @@ function buildPdf(ctx: {
       y += 20;
       doc.moveTo(40, y).lineTo(40 + contentW, y).lineWidth(0.7).strokeColor(BORDER).stroke();
       y += 8;
+    };
+
+    const drawTwoColTable = (rows: { label: string; value: string }[]) => {
+      rows.forEach((r, idx) => {
+        doc.font('Helvetica-Bold').fontSize(8.5);
+        const labelH = doc.heightOfString(r.label, { width: 192 });
+        doc.font('Helvetica').fontSize(8.5);
+        const valH = doc.heightOfString(r.value, { width: 292 });
+        const rowH = Math.max(22, Math.max(labelH, valH) + 12);
+        ensureSpace(rowH + 4);
+        doc.rect(40, y, contentW, rowH).fillAndStroke(idx % 2 === 0 ? '#ffffff' : '#f8fafc', BORDER);
+        doc.fillColor(MUTED).font('Helvetica-Bold').fontSize(8.5).text(r.label, 48, y + 6, { width: 192 });
+        doc.fillColor(TEXT).font('Helvetica').fontSize(8.5).text(r.value, 250, y + 6, { width: 292 });
+        y += rowH;
+      });
+      y += 12;
+    };
+
+    const drawPhotoGrid = (items: LoadedPhoto[]) => {
+      for (let i = 0; i < items.length; i += 2) {
+        ensureSpace(145);
+        const pair = items.slice(i, i + 2);
+        pair.forEach((ph, colIdx) => {
+          const px = 40 + colIdx * 262;
+          doc.roundedRect(px, y, 250, 132, 4).fillAndStroke('#ffffff', BORDER);
+          try {
+            doc.image(ph.buffer, px + 8, y + 8, { fit: [234, 92], align: 'center', valign: 'center' });
+          } catch {
+            doc.fillColor(MUTED).fontSize(8).text('Imagen no compatible', px + 12, y + 45);
+          }
+          doc.fillColor(TEXT).font('Helvetica-Bold').fontSize(7.5).text(ph.fileName.slice(0, 36), px + 8, y + 104, { width: 234 });
+          doc.fillColor(MUTED).font('Helvetica').fontSize(7).text(
+            `${new Date(ph.capturedAt).toLocaleString('es-CL')} · ${ph.uploader}`,
+            px + 8,
+            y + 116,
+            { width: 234 },
+          );
+        });
+        y += 142;
+      }
+    };
+
+    const collectNotes = (act: any): { author: string; date: Date; text: string; tag?: string }[] => {
+      const notes: { author: string; date: Date; text: string; tag?: string }[] = [];
+      for (const c of act.comments ?? []) {
+        if (c.body?.trim()) {
+          notes.push({ author: c.user?.name || 'Personal', date: new Date(c.createdAt), text: c.body.trim() });
+        }
+      }
+      for (const t of act.transitions ?? []) {
+        if (t.comment?.trim()) {
+          notes.push({
+            author: t.user?.name || 'Personal',
+            date: new Date(t.createdAt),
+            text: t.comment.trim(),
+            tag: `${t.label} (${t.toStatus})`,
+          });
+        }
+      }
+      return notes.sort((a, b) => a.date.getTime() - b.date.getTime());
+    };
+
+    const drawCommentsList = (notes: { author: string; date: Date; text: string; tag?: string }[]) => {
+      for (const n of notes) {
+        const hdr = `${n.author} · ${n.date.toLocaleString('es-CL')}${n.tag ? ` · ${n.tag}` : ''}`;
+        doc.font('Helvetica').fontSize(8.5);
+        const txtH = doc.heightOfString(n.text, { width: contentW - 22 });
+        const boxH = Math.max(30, txtH + 22);
+        ensureSpace(boxH + 6);
+        doc.roundedRect(40, y, contentW, boxH, 4).fillAndStroke(BG_SOFT, BORDER);
+        doc.rect(40, y, 3.5, boxH).fill(PRIMARY);
+        doc.fillColor(PRIMARY).font('Helvetica-Bold').fontSize(7.5).text(hdr, 50, y + 6, { width: contentW - 18 });
+        doc.fillColor(TEXT).font('Helvetica').fontSize(8.5).text(n.text, 50, y + 17, { width: contentW - 18 });
+        y += boxH + 6;
+      }
     };
 
     // ==================== HEADER INSTITUCIONAL ====================
@@ -429,8 +515,6 @@ function buildPdf(ctx: {
 
     // ==================== 1. FICHA GENERAL OT ====================
     drawSectionHeader('1. Información General de la Orden de Trabajo');
-    const col1X = 52;
-    const col2X = 310;
     const createdTxt = `${activity.createdBy?.name || 'Sistema'} (${new Date(activity.createdAt).toLocaleString('es-CL')})`;
     const locTxt = activity.address
       ? `${activity.address}${typeof activity.lat === 'number' ? ` (${activity.lat.toFixed(5)}, ${activity.lng.toFixed(5)})` : ''}`
@@ -438,85 +522,24 @@ function buildPdf(ctx: {
         ? `${activity.lat.toFixed(5)}, ${activity.lng.toFixed(5)}`
         : 'Sin dirección registrada';
 
-    doc.font('Helvetica').fontSize(8.5);
-    const titleBoxH = Math.max(12, doc.heightOfString(activity.title, { width: 440 }));
-    const procH = Math.max(12, doc.heightOfString(activity.type?.name || 'N/A', { width: 192 }));
-    const unitH = Math.max(12, doc.heightOfString(activity.unit?.name || 'General', { width: 185 }));
-    const row2H = Math.max(procH, unitH);
-    const createdH = Math.max(12, doc.heightOfString(createdTxt, { width: 190 }));
-    const assigneeH = Math.max(12, doc.heightOfString(activity.assignee?.name || 'Sin asignar', { width: 175 }));
-    const row4H = Math.max(createdH, assigneeH);
-    const locH = Math.max(12, doc.heightOfString(locTxt, { width: 432 }));
-
-    const cardH = 14 + titleBoxH + 6 + row2H + 6 + 14 + 6 + row4H + 6 + locH + 12;
-    ensureSpace(cardH + 10);
-    doc.roundedRect(40, y, contentW, cardH, 4).fillAndStroke(BG_SOFT, BORDER);
-
-    let fy = y + 10;
-    doc.fillColor(TEXT).font('Helvetica-Bold').fontSize(8.5).text('Título:', col1X, fy);
-    doc.font('Helvetica').text(activity.title, col1X + 45, fy, { width: 440 });
-    fy += titleBoxH + 6;
-
-    doc.font('Helvetica-Bold').text('Proceso:', col1X, fy);
-    doc.font('Helvetica').text(activity.type?.name || 'N/A', col1X + 50, fy, { width: 192 });
-    doc.font('Helvetica-Bold').text('Unidad:', col2X, fy);
-    doc.font('Helvetica').text(activity.unit?.name || 'General', col2X + 45, fy, { width: 185 });
-    fy += row2H + 6;
-
-    doc.font('Helvetica-Bold').text('Estado:', col1X, fy);
-    doc.font('Helvetica').text(`${activity.status} (${activity.progress ?? 0}%)`, col1X + 45, fy);
-    doc.font('Helvetica-Bold').text('Prioridad:', col2X, fy);
-    doc.font('Helvetica').text(activity.priority, col2X + 52, fy);
-    fy += 20;
-
-    doc.font('Helvetica-Bold').text('Creado por:', col1X, fy);
-    doc.font('Helvetica').text(createdTxt, col1X + 58, fy, { width: 190 });
-    doc.font('Helvetica-Bold').text('Asignado a:', col2X, fy);
-    doc.font('Helvetica').text(activity.assignee?.name || 'Sin asignar', col2X + 58, fy, { width: 175 });
-    fy += row4H + 6;
-
-    doc.font('Helvetica-Bold').text('Ubicación:', col1X, fy);
-    doc.font('Helvetica').text(locTxt, col1X + 55, fy, { width: 432 });
-
-    y += cardH + 12;
-
+    const generalRows: { label: string; value: string }[] = [];
     if (activity.parent) {
-      ensureSpace(22);
-      doc.fillColor(PRIMARY).font('Helvetica-Bold').fontSize(8.5).text('OT Principal:', 40, y);
-      doc.fillColor(TEXT).font('Helvetica').fontSize(8.5).text(
-        `${activity.parent.folio} — ${activity.parent.title}`,
-        105,
-        y,
-        { width: contentW - 65 },
-      );
-      y = doc.y + 8;
+      generalRows.push({ label: 'OT Principal', value: `${activity.parent.folio} — ${activity.parent.title}` });
     }
-
+    generalRows.push(
+      { label: 'Título', value: String(activity.title || 'Sin título') },
+      { label: 'Proceso', value: String(activity.type?.name || 'N/A') },
+      { label: 'Unidad', value: String(activity.unit?.name || 'General') },
+      { label: 'Estado', value: `${activity.status} (${activity.progress ?? 0}%)` },
+      { label: 'Prioridad', value: String(activity.priority || 'MEDIA') },
+      { label: 'Creado por', value: createdTxt },
+      { label: 'Asignado a', value: String(activity.assignee?.name || 'Sin asignar') },
+      { label: 'Ubicación', value: locTxt },
+    );
     if (activity.description) {
-      ensureSpace(36);
-      doc.fillColor(MUTED).font('Helvetica-Bold').fontSize(8.5).text('Descripción:', 40, y);
-      doc.fillColor(TEXT).font('Helvetica').fontSize(8.5).text(activity.description, 40, y + 12, { width: contentW });
-      y = doc.y + 10;
+      generalRows.push({ label: 'Descripción', value: String(activity.description) });
     }
-
-    if (Array.isArray(activity.children) && activity.children.length > 0) {
-      drawSectionHeader(`Visitas Técnicas Asociadas (${activity.children.length})`);
-      activity.children.forEach((v: any, idx: number) => {
-        const vTitle = `${v.folio} · ${v.title}`;
-        const vMeta = `${v.status} · ${v.assignee?.name || 'Sin asignar'} · ${new Date(v.scheduledAt || v.createdAt).toLocaleDateString('es-CL')}`;
-        doc.font('Helvetica-Bold').fontSize(8);
-        const h1 = doc.heightOfString(vTitle, { width: 255 });
-        doc.font('Helvetica').fontSize(8);
-        const h2 = doc.heightOfString(vMeta, { width: 230 });
-        const rowH = Math.max(20, Math.max(h1, h2) + 10);
-        ensureSpace(rowH + 4);
-        doc.rect(40, y, contentW, rowH).fillAndStroke(idx % 2 === 0 ? '#ffffff' : '#f8fafc', BORDER);
-        doc.fillColor(PRIMARY).font('Helvetica-Bold').fontSize(8).text(vTitle, 48, y + 5, { width: 255 });
-        doc.fillColor(MUTED).font('Helvetica').fontSize(8).text(vMeta, 310, y + 5, { width: 235 });
-        y += rowH;
-      });
-      y += 12;
-    }
+    drawTwoColTable(generalRows);
 
     // ==================== 2. FORMULARIO DIGITAL ====================
     const formFields: any[] = activity.formVersion?.definition?.fields ?? [];
@@ -525,21 +548,12 @@ function buildPdf(ctx: {
 
     if (answerFields.length > 0) {
       drawSectionHeader('2. Respuestas del Formulario Digital en Terreno');
-      answerFields.forEach((f, idx) => {
-        const labelText = String(f.label || f.key || '');
-        const valText = formatFormValue(f, formData[f.key]);
-        doc.font('Helvetica-Bold').fontSize(8.5);
-        const labelH = doc.heightOfString(labelText, { width: 192 });
-        doc.font('Helvetica').fontSize(8.5);
-        const valH = doc.heightOfString(valText, { width: 292 });
-        const rowH = Math.max(22, Math.max(labelH, valH) + 12);
-        ensureSpace(rowH + 4);
-        doc.rect(40, y, contentW, rowH).fillAndStroke(idx % 2 === 0 ? '#ffffff' : '#f8fafc', BORDER);
-        doc.fillColor(MUTED).font('Helvetica-Bold').fontSize(8.5).text(labelText, 48, y + 6, { width: 192 });
-        doc.fillColor(TEXT).font('Helvetica').fontSize(8.5).text(valText, 250, y + 6, { width: 292 });
-        y += rowH;
-      });
-      y += 12;
+      drawTwoColTable(
+        answerFields.map((f) => ({
+          label: String(f.label || f.key || ''),
+          value: formatFormValue(f, formData[f.key]),
+        })),
+      );
     }
 
     // ==================== 3. MAPA DE UBICACIÓN Y TRAZADO ====================
@@ -694,27 +708,7 @@ function buildPdf(ctx: {
 
       // 4a. Photos grid
       if (photos.length > 0) {
-        for (let i = 0; i < photos.length; i += 2) {
-          ensureSpace(145);
-          const pair = photos.slice(i, i + 2);
-          pair.forEach((ph, colIdx) => {
-            const px = 40 + colIdx * 262;
-            doc.roundedRect(px, y, 250, 132, 4).fillAndStroke('#ffffff', BORDER);
-            try {
-              doc.image(ph.buffer, px + 8, y + 8, { fit: [234, 92], align: 'center', valign: 'center' });
-            } catch {
-              doc.fillColor(MUTED).fontSize(8).text('Imagen no compatible', px + 12, y + 45);
-            }
-            doc.fillColor(TEXT).font('Helvetica-Bold').fontSize(7.5).text(ph.fileName.slice(0, 36), px + 8, y + 104, { width: 234 });
-            doc.fillColor(MUTED).font('Helvetica').fontSize(7).text(
-              `${new Date(ph.capturedAt).toLocaleString('es-CL')} · ${ph.uploader}`,
-              px + 8,
-              y + 116,
-              { width: 234 },
-            );
-          });
-          y += 142;
-        }
+        drawPhotoGrid(photos);
       }
 
       // 4b. Signatures (vectorial SVG paths!)
@@ -794,38 +788,52 @@ function buildPdf(ctx: {
       y += 8;
     }
 
-    // ==================== 5. HISTORIAL Y TRAZABILIDAD ====================
-    drawSectionHeader('5. Historial de Aprobaciones y Trazabilidad');
-    if (activity.transitions.length === 0 && auditLogs.length === 0) {
-      ensureSpace(20);
-      doc.fillColor(MUTED).font('Helvetica-Oblique').fontSize(8.5).text('Sin movimientos registrados aún.', 40, y);
-      y += 16;
-    } else {
-      for (const t of activity.transitions) {
-        ensureSpace(28);
-        doc.rect(40, y, 3, 20).fill('#7c3aed');
-        doc.fillColor(TEXT).font('Helvetica-Bold').fontSize(8).text(
-          `${new Date(t.createdAt).toLocaleString('es-CL')} — ${t.label} (${t.fromStatus} -> ${t.toStatus})`,
-          48,
-          y,
-        );
-        doc.fillColor(MUTED).font('Helvetica').fontSize(7.5).text(
-          `Usuario: ${t.user?.name || 'Sistema'}${t.comment ? ` · Obs: "${t.comment}"` : ''}`,
-          48,
-          y + 10,
-        );
-        y += 24;
-      }
-      for (const log of auditLogs.slice(-15)) {
-        ensureSpace(22);
-        doc.rect(40, y, 3, 14).fill(log.action.startsWith('delete') ? RED : PRIMARY);
-        doc.fillColor(TEXT).font('Helvetica').fontSize(7.5).text(
-          `${new Date(log.createdAt).toLocaleString('es-CL')} · [${log.entity}] ${log.action} · Usuario: ${log.userName || 'Sistema'}`,
-          48,
-          y + 2,
-          { width: contentW - 12 },
-        );
-        y += 18;
+    // ==================== 5. COMENTARIOS DEL PERSONAL ====================
+    const mainNotes = collectNotes(activity);
+    if (mainNotes.length > 0) {
+      drawSectionHeader(`5. Comentarios y Observaciones del Personal (${mainNotes.length})`);
+      drawCommentsList(mainNotes);
+      y += 6;
+    }
+
+    // ==================== 6. VISITAS TÉCNICAS ASOCIADAS ====================
+    if (Array.isArray(activity.children) && activity.children.length > 0) {
+      const secNum = mainNotes.length > 0 ? 6 : 5;
+      drawSectionHeader(`${secNum}. Visitas Técnicas Asociadas (${activity.children.length})`);
+      for (const v of activity.children) {
+        const vNotes = collectNotes(v);
+        const vPhotos = visitPhotos[v.id] ?? [];
+        const vHeader = `${v.folio} · ${v.title}`;
+        const vMeta = `Estado: ${v.status} · Inspector: ${v.assignee?.name || 'Sin asignar'} · Fecha: ${new Date(v.scheduledAt || v.createdAt).toLocaleDateString('es-CL')}`;
+
+        ensureSpace(46);
+        doc.roundedRect(40, y, contentW, 34, 4).fillAndStroke('#eef6fc', BORDER);
+        doc.fillColor(PRIMARY).font('Helvetica-Bold').fontSize(9).text(vHeader, 48, y + 6, { width: contentW - 16 });
+        doc.fillColor(MUTED).font('Helvetica').fontSize(7.5).text(vMeta, 48, y + 19, { width: contentW - 16 });
+        y += 40;
+
+        if (v.description) {
+          doc.font('Helvetica').fontSize(8);
+          const dh = doc.heightOfString(v.description, { width: contentW - 16 });
+          ensureSpace(dh + 10);
+          doc.fillColor(TEXT).text(v.description, 48, y, { width: contentW - 16 });
+          y += dh + 6;
+        }
+
+        if (vNotes.length > 0) {
+          drawCommentsList(vNotes);
+        }
+
+        if (vPhotos.length > 0) {
+          drawPhotoGrid(vPhotos);
+        }
+
+        if (vNotes.length === 0 && vPhotos.length === 0 && !v.description) {
+          ensureSpace(16);
+          doc.fillColor(MUTED).font('Helvetica-Oblique').fontSize(7.5).text('Sin observaciones ni fotografías adjuntas en esta visita aún.', 48, y);
+          y += 14;
+        }
+        y += 6;
       }
     }
 
