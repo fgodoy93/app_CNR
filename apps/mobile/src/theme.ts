@@ -1,21 +1,21 @@
 export const COLORS = {
-  primary: '#0b3b60',      // Azul institucional CNR / Gob
-  primaryMid: '#0f4c81',   // Azul medio
-  green: '#146c43',        // Verde bosque / MMA
+  primary: '#006fb3',      // Azul oficial Kit de Gobierno Digital Chile
+  primaryMid: '#0f69c4',   // Azul Gobierno secundario
+  green: '#146c43',        // Verde institucional / éxito
   greenSoft: '#ecfdf5',    // Fondo verde suave
-  water: '#0e7490',        // Turquesa hídrico
-  waterSoft: '#ecfeff',    // Fondo agua suave
-  bg: '#f2f6f4',           // Fondo mineral claro
+  water: '#006fb3',        // Acento hídrico / Gobierno Digital
+  waterSoft: '#e6f4fa',    // Fondo azul suave
+  bg: '#f7f9fb',           // Fondo neutro Kit de Gobierno
   surface: '#ffffff',
-  border: '#d8e3df',
-  text: '#0f241d',
-  muted: '#4b635b',
+  border: '#d9e2ec',
+  text: '#222222',         // Texto accesible WCAG
+  muted: '#4a5568',
   amber: '#d97706',
   amberSoft: '#fef3c7',
-  danger: '#dc2626',
+  danger: '#e22c2c',       // Rojo oficial Gobierno de Chile
   dangerSoft: '#fee2e2',
-  gobBlue: '#0039a6',
-  gobRed: '#d52b1e',
+  gobBlue: '#006fb3',
+  gobRed: '#e22c2c',
 };
 
 export const STATUS_COLORS: Record<string, { bg: string; fg: string; border: string }> = {
