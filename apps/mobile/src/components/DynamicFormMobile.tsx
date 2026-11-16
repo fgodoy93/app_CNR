@@ -30,12 +30,14 @@ export function DynamicFormMobile({
   onChange,
   onCaptureEvidence,
   onCaptureGeo,
+  onOpenGeoMap,
 }: {
   definition: FormDefinition;
   values: FormValues;
   onChange: (next: FormValues) => void;
   onCaptureEvidence: (ev: CapturedEvidence) => void;
   onCaptureGeo: (kind: 'POINT' | 'LINE' | 'POLYGON' | 'TRACK', coords: [number, number], accuracy?: number | null) => void;
+  onOpenGeoMap?: (kind: 'POINT' | 'LINE' | 'POLYGON' | 'TRACK') => void;
 }) {
   const [qrField, setQrField] = useState<string | null>(null);
   const [sigField, setSigField] = useState<string | null>(null);
@@ -271,15 +273,17 @@ export function DynamicFormMobile({
               </View>
             ) : f.type === 'geopoint' || f.type === 'geoline' || f.type === 'geopolygon' ? (
               <TouchableOpacity
-                onPress={() =>
-                  captureGps(
-                    f.key,
-                    f.type === 'geoline' ? 'LINE' : f.type === 'geopolygon' ? 'POLYGON' : 'POINT',
-                  )
-                }
+                onPress={() => {
+                  const k = f.type === 'geoline' ? 'LINE' : f.type === 'geopolygon' ? 'POLYGON' : 'POINT';
+                  if (onOpenGeoMap) {
+                    onOpenGeoMap(k);
+                  } else {
+                    void captureGps(f.key, k);
+                  }
+                }}
                 style={styles.actionBtn}
               >
-                <Text style={styles.actionTxt}>📍 Capturar GPS ({Array.isArray(val) ? val.length : 0})</Text>
+                <Text style={styles.actionTxt}>🗺️ Capturar en Mapa ({Array.isArray(val) ? val.length : 0})</Text>
               </TouchableOpacity>
             ) : (
               <TextInput

@@ -325,9 +325,9 @@ function ActividadDetailInner() {
         <div className="lg:col-span-7 space-y-6">
           {/* Dynamic Form */}
           <div className="bg-white p-5 rounded-xl border border-[#d8e3df] shadow-sm">
-            <div className="flex justify-between items-center mb-4">
+            <div className="sticky top-0 z-10 bg-white/95 backdrop-blur flex justify-between items-center pb-3 mb-4 border-b border-slate-100">
               <h3 className="font-semibold text-[#0b3b60]">Formulario Digital</h3>
-              <button onClick={saveForm} className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-[#146c43] hover:bg-[#0f5434] text-white rounded-lg text-sm font-medium">
+              <button onClick={saveForm} className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-[#146c43] hover:bg-[#0f5434] text-white rounded-lg text-sm font-medium shadow-sm">
                 <Save className="w-4 h-4" /> Guardar Datos
               </button>
             </div>
@@ -337,6 +337,33 @@ function ActividadDetailInner() {
                 values={formValues}
                 onChange={setFormValues}
                 context={{ activity: a }}
+                evidences={detail.evidences ?? []}
+                onTranscribeAudio={async (file) => {
+                  const fd = new FormData();
+                  fd.append('file', file);
+                  const res = await api.post<{ text: string }>('/api/v1/evidences/transcribe', fd);
+                  return res.text || '';
+                }}
+                onUploadFieldEvidence={async (fieldKey, kind, file, transcript) => {
+                  const evId = crypto.randomUUID();
+                  const fd = new FormData();
+                  fd.append(
+                    'meta',
+                    JSON.stringify({
+                      id: evId,
+                      activityId: id,
+                      kind,
+                      fieldKey,
+                      transcript: transcript || null,
+                      capturedAt: new Date().toISOString(),
+                      source: kind === 'AUDIO' ? 'recorder' : 'file',
+                    }),
+                  );
+                  fd.append('file', file);
+                  await api.post('/api/v1/evidences', fd);
+                  await load();
+                  return evId;
+                }}
               />
             ) : (
               <p className="text-sm text-slate-400">Esta actividad no tiene formulario asignado.</p>

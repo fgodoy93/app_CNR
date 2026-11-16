@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { AppShell } from '@/components/AppShell';
 import { MapClient } from '@/components/MapClient';
+import { AddressAutocomplete } from '@/components/AddressAutocomplete';
 import { api } from '@/lib/api';
 import { Download, MapPin } from 'lucide-react';
 
@@ -19,6 +20,8 @@ export default function MapaPage() {
   const [features, setFeatures] = useState<any[]>([]);
   const [kindFilter, setKindFilter] = useState('');
   const [focusId, setFocusId] = useState<string | null>(null);
+  const [searchAddr, setSearchAddr] = useState('');
+  const [focusCenter, setFocusCenter] = useState<{ lat: number; lng: number; zoom?: number } | null>(null);
 
   useEffect(() => {
     api.get<{ data: any[] }>('/api/v1/geo').then((r) => setFeatures(r.data)).catch(() => undefined);
@@ -70,9 +73,18 @@ export default function MapaPage() {
         </div>
       </div>
 
+      <div className="mb-4 max-w-md">
+        <AddressAutocomplete
+          value={searchAddr}
+          onChange={setSearchAddr}
+          onSelect={(item) => setFocusCenter({ lat: item.lat, lng: item.lng, zoom: 14 })}
+          placeholder="Buscar dirección, comuna o zona en el mapa..."
+        />
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
         <div className="lg:col-span-8">
-          <MapClient features={filtered} height="560px" focusFeatureId={focusId} />
+          <MapClient features={filtered} height="560px" focusFeatureId={focusId} focusCenter={focusCenter} />
         </div>
         <div className="lg:col-span-4 bg-white rounded-xl border border-[#d8e3df] shadow-sm p-4 max-h-[560px] flex flex-col">
           <h3 className="font-semibold text-[#0b3b60] text-sm mb-3 flex items-center gap-2">

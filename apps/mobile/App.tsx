@@ -188,11 +188,18 @@ function AppContent() {
       }
     });
 
+    const pollId = setInterval(() => {
+      if (autoSync && loggedIn && isOnline && !selected && !syncingRef.current) {
+        void handleSync(true);
+      }
+    }, 15000);
+
     return () => {
+      clearInterval(pollId);
       netSub.remove();
       appSub.remove();
     };
-  }, [autoSync, loggedIn]);
+  }, [autoSync, loggedIn, isOnline, selected]);
 
   const openActivity = async (act: any) => {
     const db = await getDb();
@@ -245,7 +252,15 @@ function AppContent() {
     await refreshLocal();
     const folio = selected.folio;
     setSelected(null);
-    Alert.alert('¡Guardado con éxito!', `El avance de ${folio} se guardó en el dispositivo y quedó listo para sincronizar.`);
+    if (isOnline && autoSync) {
+      void handleSync(true);
+    }
+    Alert.alert(
+      '¡Guardado con éxito!',
+      isOnline && autoSync
+        ? `El avance de ${folio} se guardó y se está sincronizando automáticamente.`
+        : `El avance de ${folio} se guardó en el dispositivo y quedó listo para sincronizar.`,
+    );
   };
 
   const executeWorkflowTransition = async (tr: WorkflowTransition) => {
@@ -265,7 +280,10 @@ function AppContent() {
     const updated = { ...selected, status: tr.to, updatedAt: now };
     await refreshLocal();
     await openActivity(updated);
-    Alert.alert('Estado Actualizado', `La actividad pasó a ${tr.to} (encolado para sincronizar).`);
+    if (isOnline && autoSync) {
+      void handleSync(true);
+    }
+    Alert.alert('Estado Actualizado', `La actividad pasó a ${tr.to}.`);
   };
 
   const handleCaptureEvidence = async (ev: CapturedEvidence) => {
@@ -324,7 +342,10 @@ function AppContent() {
     setShowGeoModal(false);
     await refreshLocal();
     setActGeo(await db.getAllAsync<any>(`SELECT * FROM geo_features WHERE activityId = ? ORDER BY capturedAt DESC`, [selected.id]));
-    Alert.alert('Geometría Guardada', `${input.kind} "${input.label}" guardado en SQLite.`);
+    if (isOnline && autoSync) {
+      void handleSync(true);
+    }
+    Alert.alert('Geometría Guardada', `${input.kind} "${input.label}" guardado.`);
   };
 
   const handleCreateActivity = async (input: {
@@ -361,7 +382,25 @@ function AppContent() {
     });
     setShowNewModal(false);
     await refreshLocal();
-    Alert.alert('¡OT guardada con éxito!', `Se creó la actividad con folio ${folio}. Presione Sync cuando tenga conexión.`);
+    await openActivity({
+      id,
+      folio,
+      typeId: input.typeId,
+      typeName: t?.name ?? 'Actividad',
+      title: input.title,
+      description: input.description,
+      priority: input.priority,
+      status: 'PENDIENTE',
+      progress: 0,
+      formVersionId,
+      data: '{}',
+      address: input.address,
+      version: 1,
+      updatedAt: now,
+    });
+    if (isOnline && autoSync) {
+      void handleSync(true);
+    }
   };
 
   const handleScanOtQr = async (raw: string) => {
@@ -596,6 +635,7 @@ function AppContent() {
                 values={formData}
                 onChange={setFormData}
                 onCaptureEvidence={handleCaptureEvidence}
+                onOpenGeoMap={() => setShowGeoModal(true)}
                 onCaptureGeo={(kind, coords, accuracy) =>
                   saveGeoFeature({
                     kind,
@@ -666,8 +706,17 @@ function AppContent() {
             <TouchableOpacity onPress={() => setShowOtScanner(true)} style={[styles.headerPill, { backgroundColor: COLORS.water }]}>
               <Text style={styles.headerPillTxt}>📷 QR OT</Text>
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => handleSync(false)} disabled={syncing} style={styles.headerPill}>
-              <Text style={styles.headerPillTxt}>{syncing ? 'Sincronizando...' : `⟳ Sync (${pendingTotal})`}</Text>
+            <TouchableOpacity
+              onPress={() => handleSync(false)}
+              disabled={syncing}
+              style={[
+                styles.headerPill,
+                { backgroundColor: syncing ? '#475569' : pendingTotal > 0 ? '#d97706' : COLORS.green },
+              ]}
+            >
+              <Text style={styles.headerPillTxt}>
+                {syncing ? '⟳ Sync...' : pendingTotal > 0 ? `⟳ Subir (${pendingTotal})` : '✓ Al día'}
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -735,6 +784,8 @@ function AppContent() {
               <FlatList
                 data={filteredActivities}
                 keyExtractor={(item) => item.id}
+                refreshing={syncing}
+                onRefresh={() => void handleSync(true)}
                 contentContainerStyle={{ padding: 14, gap: 10 }}
                 ListEmptyComponent={<Text style={styles.empty}>No hay actividades. Presione Sync.</Text>}
                 renderItem={({ item }) => {

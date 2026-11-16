@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { AppShell } from '@/components/AppShell';
+import { AddressAutocomplete } from '@/components/AddressAutocomplete';
 import { api } from '@/lib/api';
 import { Plus, Search, MapPin, Paperclip, LayoutList, Columns3 } from 'lucide-react';
 
@@ -287,7 +288,24 @@ export default function ActividadesPage() {
             </div>
             <div>
               <label className="block text-sm font-medium mb-1">Ubicación / Obra</label>
-              <input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-sm" placeholder="Ej. Canal Matriz Maule Km 14" />
+              <AddressAutocomplete
+                value={form.address}
+                onChange={(val) => setForm((f) => ({ ...f, address: val }))}
+                onSelect={(item) =>
+                  setForm((f) => ({
+                    ...f,
+                    address: item.address,
+                    lat: String(item.lat),
+                    lng: String(item.lng),
+                  }))
+                }
+                placeholder="Ej. Canal Matriz Maule, Talca, Rancagua..."
+              />
+              {form.lat && form.lng && (
+                <p className="text-[11px] text-emerald-700 mt-1">
+                  📍 Coordenadas seleccionadas: {Number(form.lat).toFixed(5)}, {Number(form.lng).toFixed(5)}
+                </p>
+              )}
             </div>
             <div className="flex justify-end gap-2 pt-2">
               <button type="button" onClick={() => setShowModal(false)} className="px-4 py-2 border rounded-lg text-sm">Cancelar</button>
