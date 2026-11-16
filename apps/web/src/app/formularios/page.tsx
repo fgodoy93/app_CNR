@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { AppShell } from '@/components/AppShell';
+import { DynamicFormRenderer } from '@/components/DynamicFormRenderer';
 import { api } from '@/lib/api';
 import {
   FIELD_TYPES,
@@ -23,6 +24,7 @@ export default function FormulariosPage() {
   const [showNew, setShowNew] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [previewValues, setPreviewValues] = useState<Record<string, unknown>>({});
 
   const load = () => {
     api.get<{ data: any[] }>('/api/v1/forms').then((r) => setTemplates(r.data)).catch((e) => setError(e.message));
@@ -388,6 +390,26 @@ export default function FormulariosPage() {
                     </div>
                   );
                 })}
+              </div>
+
+              <div className="pt-4 border-t space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-semibold text-[#0b3b60]">👁️ Vista Previa en Vivo (como se verá en terreno)</span>
+                  <button
+                    type="button"
+                    onClick={() => setPreviewValues({})}
+                    className="text-xs text-slate-500 hover:underline"
+                  >
+                    Limpiar respuestas
+                  </button>
+                </div>
+                <div className="p-4 rounded-xl border border-[#d8e3df] bg-[#f8fbfa]">
+                  <DynamicFormRenderer
+                    definition={{ fields, rules }}
+                    values={previewValues}
+                    onChange={setPreviewValues}
+                  />
+                </div>
               </div>
             </div>
           )}

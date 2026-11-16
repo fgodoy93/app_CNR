@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Modal, View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import * as Location from 'expo-location';
 import { AddressAutocompleteMobile } from './AddressAutocompleteMobile';
 import { COLORS } from '../theme';
 
@@ -11,7 +12,15 @@ export function NewActivityModal({
 }: {
   visible: boolean;
   types: { id: string; name: string; prefix: string }[];
-  onCreate: (input: { typeId: string; title: string; description: string; priority: 'BAJA' | 'MEDIA' | 'ALTA' | 'CRITICA'; address: string }) => void;
+  onCreate: (input: {
+    typeId: string;
+    title: string;
+    description: string;
+    priority: 'BAJA' | 'MEDIA' | 'ALTA' | 'CRITICA';
+    address: string;
+    lat?: number;
+    lng?: number;
+  }) => void;
   onClose: () => void;
 }) {
   const [typeId, setTypeId] = useState(types[0]?.id ?? '');
@@ -19,6 +28,39 @@ export function NewActivityModal({
   const [description, setDescription] = useState('');
   const [priority, setPriority] = useState<'BAJA' | 'MEDIA' | 'ALTA' | 'CRITICA'>('MEDIA');
   const [address, setAddress] = useState('');
+  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [locating, setLocating] = useState(false);
+
+  const useCurrentLocation = async () => {
+    setLocating(true);
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        return Alert.alert('Permiso requerido', 'Autorice el acceso al GPS para usar su ubicación.');
+      }
+      const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      const { latitude: lat, longitude: lng } = pos.coords;
+      setCoords({ lat, lng });
+      try {
+        const res = await fetch(
+          `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`,
+          { headers: { 'User-Agent': 'TerrenoCNR-App/1.0' } },
+        );
+        const data = (await res.json()) as { display_name?: string };
+        setAddress(
+          data.display_name
+            ? data.display_name.split(',').slice(0, 3).join(',').trim()
+            : `${lat.toFixed(5)}, ${lng.toFixed(5)}`,
+        );
+      } catch {
+        setAddress(`${lat.toFixed(5)}, ${lng.toFixed(5)}`);
+      }
+    } catch {
+      Alert.alert('GPS no disponible', 'No se pudo obtener la ubicación actual.');
+    } finally {
+      setLocating(false);
+    }
+  };
 
   if (!visible) return null;
 
@@ -41,7 +83,15 @@ export function NewActivityModal({
           </View>
 
           <TextInput style={styles.input} value={title} onChangeText={setTitle} placeholder="Título de la inspección u orden *" />
-          <AddressAutocompleteMobile value={address} onChangeText={setAddress} placeholder="Ubicación / Sector (con sugerencias)" />
+          <AddressAutocompleteMobile
+            value={address}
+            onChangeText={setAddress}
+            onSelect={(item) => setCoords({ lat: item.lat, lng: item.lng })}
+            placeholder="Ubicación / Sector (con sugerencias)"
+          />
+          <TouchableOpacity onPress={useCurrentLocation} disabled={locating} style={styles.gpsBtn}>
+            <Text style={styles.gpsBtnTxt}>{locating ? 'Obteniendo GPS...' : '📍 Usar mi ubicación actual'}</Text>
+          </TouchableOpacity>
           <TextInput style={[styles.input, { height: 60 }]} multiline value={description} onChangeText={setDescription} placeholder="Descripción" />
 
           <Text style={styles.label}>Prioridad</Text>
@@ -68,10 +118,19 @@ export function NewActivityModal({
                   Alert.alert('Campo requerido', 'Ingrese un título para la inspección u orden.');
                   return;
                 }
-                onCreate({ typeId: chosenType, title: title.trim(), description: description.trim(), priority, address: address.trim() });
+                onCreate({
+                  typeId: chosenType,
+                  title: title.trim(),
+                  description: description.trim(),
+                  priority,
+                  address: address.trim(),
+                  lat: coords?.lat,
+                  lng: coords?.lng,
+                });
                 setTitle('');
                 setDescription('');
                 setAddress('');
+                setCoords(null);
               }}
               style={styles.btnPri}
             >
@@ -98,4 +157,6 @@ const styles = StyleSheet.create({
   actions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8, marginTop: 6 },
   btnSec: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 10, backgroundColor: '#e2ebe7' },
   btnPri: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 10, backgroundColor: COLORS.green },
+  gpsBtn: { alignSelf: 'flex-start', backgroundColor: '#e0f2fe', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8 },
+  gpsBtnTxt: { color: '#0369a1', fontSize: 12, fontWeight: '700' },
 });

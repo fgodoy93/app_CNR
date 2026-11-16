@@ -74,6 +74,7 @@ function AppContent() {
   const [actView, setActView] = useState<'list' | 'kanban'>('list');
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [urgentOnly, setUrgentOnly] = useState(false);
   const [activities, setActivities] = useState<any[]>([]);
   const [types, setTypes] = useState<any[]>([]);
   const [allGeo, setAllGeo] = useState<any[]>([]);
@@ -417,6 +418,8 @@ function AppContent() {
     description: string;
     priority: 'BAJA' | 'MEDIA' | 'ALTA' | 'CRITICA';
     address: string;
+    lat?: number;
+    lng?: number;
   }) => {
     const db = await getDb();
     const id = Crypto.randomUUID();
@@ -432,9 +435,22 @@ function AppContent() {
     }
 
     await db.runAsync(
-      `INSERT INTO activities (id, folio, typeId, typeName, title, description, priority, status, progress, formVersionId, data, address, version, updatedAt)
-       VALUES (?, ?, ?, ?, ?, ?, ?, 'PENDIENTE', 0, ?, '{}', ?, 1, ?)`,
-      [id, folio, input.typeId, t?.name ?? 'Actividad', input.title, input.description, input.priority, formVersionId, input.address, now],
+      `INSERT INTO activities (id, folio, typeId, typeName, title, description, priority, status, progress, formVersionId, data, address, lat, lng, version, updatedAt)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 'PENDIENTE', 0, ?, '{}', ?, ?, ?, 1, ?)`,
+      [
+        id,
+        folio,
+        input.typeId,
+        t?.name ?? 'Actividad',
+        input.title,
+        input.description,
+        input.priority,
+        formVersionId,
+        input.address,
+        input.lat ?? null,
+        input.lng ?? null,
+        now,
+      ],
     );
     await enqueueMutation('activity', 'upsert', id, {
       typeId: input.typeId,
@@ -442,6 +458,8 @@ function AppContent() {
       description: input.description || null,
       priority: input.priority,
       address: input.address || null,
+      lat: input.lat ?? null,
+      lng: input.lng ?? null,
     });
     setShowNewModal(false);
     await refreshLocal();
@@ -458,6 +476,8 @@ function AppContent() {
       formVersionId,
       data: '{}',
       address: input.address,
+      lat: input.lat ?? null,
+      lng: input.lng ?? null,
       version: 1,
       updatedAt: now,
     });
@@ -698,10 +718,30 @@ function AppContent() {
           </View>
 
           {/* Dynamic Form */}
-          {formDef && (
-            <View style={styles.card}>
-              <Text style={styles.sectionHeader}>Formulario Digital en Terreno</Text>
-              <DynamicFormMobile
+          {formDef && (() => {
+            const evalState = evaluateForm(formDef, formData);
+            const reqFields = formDef.fields.filter((f) => evalState.visible[f.key] && evalState.required[f.key]);
+            const doneReq = reqFields.filter((f) => {
+              const v = evalState.values[f.key];
+              return v !== undefined && v !== null && v !== '' && !(Array.isArray(v) && v.length === 0);
+            }).length;
+            return (
+              <View style={styles.card}>
+                <View style={styles.rowBetween}>
+                  <Text style={styles.sectionHeader}>Formulario Digital en Terreno</Text>
+                  {reqFields.length > 0 && (
+                    <Text
+                      style={{
+                        fontSize: 11,
+                        fontWeight: '700',
+                        color: doneReq === reqFields.length ? COLORS.green : COLORS.amber,
+                      }}
+                    >
+                      {doneReq}/{reqFields.length} obligatorios
+                    </Text>
+                  )}
+                </View>
+                <DynamicFormMobile
                 definition={formDef}
                 values={formData}
                 onChange={(next) => {
@@ -723,7 +763,8 @@ function AppContent() {
                 }
               />
             </View>
-          )}
+            );
+          })()}
 
           {/* Evidences list */}
           <View style={styles.card}>
@@ -782,7 +823,8 @@ function AppContent() {
       a.folio.toLowerCase().includes(search.toLowerCase()) ||
       a.title.toLowerCase().includes(search.toLowerCase());
     const matchStatus = !statusFilter || a.status === statusFilter;
-    return matchText && matchStatus;
+    const matchUrgent = !urgentOnly || a.priority === 'ALTA' || a.priority === 'CRITICA';
+    return matchText && matchStatus && matchUrgent;
   });
 
   return (
@@ -866,6 +908,12 @@ function AppContent() {
           ) : (
             <>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ maxHeight: 42, paddingHorizontal: 12 }}>
+                <TouchableOpacity
+                  onPress={() => setUrgentOnly((v) => !v)}
+                  style={[styles.filterChip, urgentOnly && { backgroundColor: COLORS.danger, borderColor: COLORS.danger }]}
+                >
+                  <Text style={[styles.filterTxt, urgentOnly && { color: '#fff' }]}>🔥 Urgentes</Text>
+                </TouchableOpacity>
                 {['', 'ASIGNADA', 'EN_EJECUCION', 'EN_REVISION', 'CERRADA'].map((st) => (
                   <TouchableOpacity
                     key={st || 'ALL'}

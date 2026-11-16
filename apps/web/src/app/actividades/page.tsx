@@ -191,6 +191,21 @@ export default function ActividadesPage() {
                           <span className="truncate">{a.assignee?.name || 'Sin asignar'}</span>
                           <span className="font-semibold">{a.progress ?? 0}%</span>
                         </div>
+                        <div className="flex items-center justify-between mt-2 pt-1.5 border-t border-slate-100 text-[10px] text-slate-500">
+                          <span>📍 {a.geoFeatureCount ?? 0} · 📎 {a.evidenceCount ?? 0}</span>
+                          <button
+                            type="button"
+                            onClick={async (e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              const doc = await api.post<{ id: string; verifyCode: string }>(`/api/v1/activities/${a.id}/documents`, { kind: 'REPORT' });
+                              await api.download(`/api/v1/documents/${doc.id}/download`, `${a.folio}-informe.pdf`);
+                            }}
+                            className="text-[#0b3b60] font-semibold hover:underline"
+                          >
+                            📄 PDF
+                          </button>
+                        </div>
                       </Link>
                     ))
                   )}
