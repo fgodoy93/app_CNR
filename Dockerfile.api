@@ -1,0 +1,43 @@
+# Etapa 1: Build de la API (@terreno/api + @terreno/shared)
+FROM node:20-slim AS builder
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends openssl ca-certificates && rm -rf /var/lib/apt/lists/*
+
+COPY package.json package-lock.json tsconfig.base.json ./
+COPY packages/shared/package.json packages/shared/
+COPY apps/api/package.json apps/api/
+COPY apps/web/package.json apps/web/
+
+RUN npm ci --workspace=@terreno/shared --workspace=@terreno/api --include-workspace-root
+
+COPY packages/shared ./packages/shared
+COPY apps/api ./apps/api
+
+RUN npm run prisma:generate -w @terreno/api && npm run build -w @terreno/api
+
+# Etapa 2: Runtime liviano de Producción
+FROM node:20-slim
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends openssl ca-certificates && rm -rf /var/lib/apt/lists/*
+
+COPY --from=builder /app/package.json /app/package-lock.json ./
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/packages/shared ./packages/shared
+COPY --from=builder /app/apps/api/package.json ./apps/api/package.json
+COPY --from=builder /app/apps/api/prisma ./apps/api/prisma
+COPY --from=builder /app/apps/api/dist ./apps/api/dist
+COPY apps/web/public/cnr-logo.png ./apps/web/public/cnr-logo.png
+COPY docker-entrypoint.api.sh /usr/local/bin/docker-entrypoint.api.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.api.sh && mkdir -p /app/storage
+
+ENV NODE_ENV=production
+ENV PORT=4000
+ENV HOST=0.0.0.0
+ENV STORAGE_DIR=/app/storage
+
+WORKDIR /app/apps/api
+EXPOSE 4000
+
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.api.sh"]
