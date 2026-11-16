@@ -40,7 +40,7 @@ export default function DashboardPage() {
 
       <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
         <div>
-          <h2 className="text-xl font-bold text-[#0b3b60]">Resumen Operacional en Terreno</h2>
+          <h2 className="text-xl font-bold text-[#006fb3]">Resumen Operacional en Terreno</h2>
           <p className="text-sm text-slate-600">Seguimiento en tiempo real de inspecciones hídricas, obras de riego y visitas técnicas</p>
         </div>
         <div className="flex gap-2">
@@ -53,7 +53,7 @@ export default function DashboardPage() {
           </button>
           <Link
             href="/actividades"
-            className="inline-flex items-center gap-2 px-4 py-2 bg-[#0b3b60] hover:bg-[#0f4c81] text-white text-sm font-medium rounded-lg shadow-sm transition-colors"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-[#006fb3] hover:bg-[#0f69c4] text-white text-sm font-medium rounded-lg shadow-sm transition-colors"
           >
             <Plus className="w-4 h-4" />
             Nueva Actividad / OT
@@ -63,28 +63,28 @@ export default function DashboardPage() {
 
       {/* KPIs */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <div className="bg-white p-5 rounded-xl border border-[#d8e3df] border-t-4 border-t-[#0b3b60] shadow-sm flex items-center justify-between">
+        <div className="bg-white p-5 rounded-xl border border-[#d9e2ec] border-t-4 border-t-[#006fb3] shadow-sm flex items-center justify-between">
           <div>
             <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Total Actividades</div>
-            <div className="text-3xl font-bold text-[#0b3b60] mt-1">{data?.total ?? '—'}</div>
+            <div className="text-3xl font-bold text-[#006fb3] mt-1">{data?.total ?? '—'}</div>
           </div>
-          <div className="p-3 bg-sky-50 text-[#0b3b60] rounded-xl"><ClipboardCheck className="w-6 h-6" /></div>
+          <div className="p-3 bg-sky-50 text-[#006fb3] rounded-xl"><ClipboardCheck className="w-6 h-6" /></div>
         </div>
-        <div className="bg-white p-5 rounded-xl border border-[#d8e3df] border-t-4 border-t-[#0e7490] shadow-sm flex items-center justify-between">
+        <div className="bg-white p-5 rounded-xl border border-[#d9e2ec] border-t-4 border-t-[#0e7490] shadow-sm flex items-center justify-between">
           <div>
             <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide">En Ejecución</div>
             <div className="text-3xl font-bold text-[#0e7490] mt-1">{countStatus('EN_EJECUCION')}</div>
           </div>
           <div className="p-3 bg-cyan-50 text-[#0e7490] rounded-xl"><Clock className="w-6 h-6" /></div>
         </div>
-        <div className="bg-white p-5 rounded-xl border border-[#d8e3df] border-t-4 border-t-[#146c43] shadow-sm flex items-center justify-between">
+        <div className="bg-white p-5 rounded-xl border border-[#d9e2ec] border-t-4 border-t-[#146c43] shadow-sm flex items-center justify-between">
           <div>
             <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Cerradas / Aprobadas</div>
             <div className="text-3xl font-bold text-[#146c43] mt-1">{countStatus('CERRADA')}</div>
           </div>
           <div className="p-3 bg-emerald-50 text-[#146c43] rounded-xl"><CheckCircle2 className="w-6 h-6" /></div>
         </div>
-        <div className="bg-white p-5 rounded-xl border border-[#d8e3df] border-t-4 border-t-red-600 shadow-sm flex items-center justify-between">
+        <div className="bg-white p-5 rounded-xl border border-[#d9e2ec] border-t-4 border-t-red-600 shadow-sm flex items-center justify-between">
           <div>
             <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Prioridad Crítica</div>
             <div className="text-3xl font-bold text-red-600 mt-1">{countPriority('CRITICA')}</div>
@@ -103,7 +103,7 @@ export default function DashboardPage() {
                 <XAxis dataKey="status" tick={{ fontSize: 11 }} />
                 <YAxis allowDecimals={false} />
                 <Tooltip />
-                <Bar dataKey="count" fill="#0f4c81" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="count" fill="#0f69c4" radius={[6, 6, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>

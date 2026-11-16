@@ -40,10 +40,10 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex flex-col bg-[#f2f6f4]">
       <div className="gob-stripe" />
-      <div className="flex-1 flex items-center justify-center p-4 bg-gradient-to-br from-[#0b3b60]/5 via-[#f2f6f4] to-[#146c43]/10">
-        <div className="w-full max-w-4xl grid md:grid-cols-5 bg-white rounded-2xl shadow-xl border border-[#d8e3df] overflow-hidden">
+      <div className="flex-1 flex items-center justify-center p-4 bg-gradient-to-br from-[#006fb3]/5 via-[#f2f6f4] to-[#146c43]/10">
+        <div className="w-full max-w-4xl grid md:grid-cols-5 bg-white rounded-2xl shadow-xl border border-[#d9e2ec] overflow-hidden">
           {/* Panel Institucional */}
-          <div className="md:col-span-2 bg-gradient-to-b from-[#0b3b60] via-[#0f4c81] to-[#146c43] text-white p-8 flex flex-col justify-between">
+          <div className="md:col-span-2 bg-gradient-to-b from-[#006fb3] via-[#0f69c4] to-[#146c43] text-white p-8 flex flex-col justify-between">
             <div>
               <div className="flex items-center gap-3 mb-6">
                 <BrandMark size={42} />
@@ -127,7 +127,7 @@ export default function LoginPage() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-[#0b3b60] hover:bg-[#0f4c81] text-white font-semibold py-2.5 rounded-lg transition-colors shadow-sm disabled:opacity-50"
+                className="w-full bg-[#006fb3] hover:bg-[#0f69c4] text-white font-semibold py-2.5 rounded-lg transition-colors shadow-sm disabled:opacity-50"
               >
                 {loading ? 'Ingresando...' : 'Ingresar a Plataforma'}
               </button>
@@ -144,7 +144,7 @@ export default function LoginPage() {
                     setEmail('admin@cnr.gob.cl');
                     setPassword('Cnr2026!Demo');
                   }}
-                  className="text-xs px-3 py-1.5 rounded-lg border border-[#d8e3df] bg-[#f2f6f4] hover:bg-emerald-50 text-[#0b3b60] font-medium"
+                  className="text-xs px-3 py-1.5 rounded-lg border border-[#d9e2ec] bg-[#f2f6f4] hover:bg-emerald-50 text-[#006fb3] font-medium"
                 >
                   Administrador CNR
                 </button>
@@ -154,7 +154,7 @@ export default function LoginPage() {
                     setEmail('terreno@cnr.gob.cl');
                     setPassword('Cnr2026!Demo');
                   }}
-                  className="text-xs px-3 py-1.5 rounded-lg border border-[#d8e3df] bg-[#f2f6f4] hover:bg-emerald-50 text-[#146c43] font-medium"
+                  className="text-xs px-3 py-1.5 rounded-lg border border-[#d9e2ec] bg-[#f2f6f4] hover:bg-emerald-50 text-[#146c43] font-medium"
                 >
                   Inspector Terreno
                 </button>

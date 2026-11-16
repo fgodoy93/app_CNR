@@ -265,7 +265,7 @@ function ActividadDetailInner() {
   return (
     <AppShell title={`${a.folio} · ${a.title}`}>
       <div className="mb-4">
-        <Link href="/actividades" className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#0b3b60] hover:underline">
+        <Link href="/actividades" className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#006fb3] hover:underline">
           <ArrowLeft className="w-3.5 h-3.5" /> Volver a Actividades y OT
         </Link>
       </div>
@@ -273,12 +273,12 @@ function ActividadDetailInner() {
       {msg && <div className="mb-4 p-3 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-lg text-sm">{msg}</div>}
 
       {/* Header & Workflow Actions */}
-      <div className="bg-white p-5 rounded-xl border border-[#d8e3df] shadow-sm mb-6">
+      <div className="bg-white p-5 rounded-xl border border-[#d9e2ec] shadow-sm mb-6">
         <div className="flex flex-wrap justify-between gap-4 items-start">
           <div className="flex-1 min-w-[260px]">
             <div className="flex items-center gap-2 mb-1">
               <span className="font-mono text-sm font-bold text-[#0e7490]">{a.folio}</span>
-              <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-sky-50 text-[#0b3b60]">{a.status}</span>
+              <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-sky-50 text-[#006fb3]">{a.status}</span>
               <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-700">{a.priority}</span>
             </div>
             <h2 className="text-xl font-bold text-[#0f241d]">{a.title}</h2>
@@ -296,7 +296,7 @@ function ActividadDetailInner() {
             <button onClick={() => generateDoc('VOUCHER')} className="inline-flex items-center gap-1.5 px-3 py-2 border border-slate-300 rounded-lg text-sm hover:bg-slate-50">
               <FileText className="w-4 h-4" /> Generar Voucher
             </button>
-            <button onClick={() => generateDoc('REPORT')} className="inline-flex items-center gap-1.5 px-3 py-2 bg-[#0f4c81] text-white rounded-lg text-sm hover:bg-blue-900">
+            <button onClick={() => generateDoc('REPORT')} className="inline-flex items-center gap-1.5 px-3 py-2 bg-[#0f69c4] text-white rounded-lg text-sm hover:bg-blue-900">
               <FileText className="w-4 h-4" /> Informe PDF
             </button>
           </div>
@@ -330,9 +330,9 @@ function ActividadDetailInner() {
         {/* Columna Izquierda: Formulario + Evidencias */}
         <div className="lg:col-span-7 space-y-6">
           {/* Dynamic Form */}
-          <div className="bg-white p-5 rounded-xl border border-[#d8e3df] shadow-sm">
+          <div className="bg-white p-5 rounded-xl border border-[#d9e2ec] shadow-sm">
             <div className="sticky top-0 z-10 bg-white/95 backdrop-blur flex justify-between items-center pb-3 mb-4 border-b border-slate-100">
-              <h3 className="font-semibold text-[#0b3b60]">Formulario Digital</h3>
+              <h3 className="font-semibold text-[#006fb3]">Formulario Digital</h3>
               <button onClick={saveForm} className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-[#146c43] hover:bg-[#0f5434] text-white rounded-lg text-sm font-medium shadow-sm">
                 <Save className="w-4 h-4" /> Guardar Datos
               </button>
@@ -377,9 +377,9 @@ function ActividadDetailInner() {
           </div>
 
           {/* Evidences */}
-          <div className="bg-white p-5 rounded-xl border border-[#d8e3df] shadow-sm">
+          <div className="bg-white p-5 rounded-xl border border-[#d9e2ec] shadow-sm">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="font-semibold text-[#0b3b60]">Evidencias Digitales ({detail.evidences?.length ?? 0})</h3>
+              <h3 className="font-semibold text-[#006fb3]">Evidencias Digitales ({detail.evidences?.length ?? 0})</h3>
               <label className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-sm cursor-pointer">
                 <Upload className="w-4 h-4" /> Adjuntar
                 <input type="file" onChange={uploadEvidence} className="hidden" />
@@ -433,7 +433,7 @@ function ActividadDetailInner() {
                     )}
                     {ev.transcript && (
                       <div className="text-xs bg-slate-50 border border-slate-200 rounded p-2 text-slate-700">
-                        <span className="font-semibold text-[#0b3b60]">Transcripción:</span> {ev.transcript}
+                        <span className="font-semibold text-[#006fb3]">Transcripción:</span> {ev.transcript}
                       </div>
                     )}
                   </div>
@@ -446,12 +446,12 @@ function ActividadDetailInner() {
         {/* Columna Derecha: QR, Mapa, Documentos y Trazabilidad */}
         <div className="lg:col-span-5 space-y-6">
           {/* Map & GeoFeatures */}
-          <div className="bg-white p-5 rounded-xl border border-[#d8e3df] shadow-sm space-y-3">
+          <div className="bg-white p-5 rounded-xl border border-[#d9e2ec] shadow-sm space-y-3">
             <div className="flex flex-wrap justify-between items-center gap-2">
-              <h3 className="font-semibold text-[#0b3b60] flex items-center gap-2">
+              <h3 className="font-semibold text-[#006fb3] flex items-center gap-2">
                 <MapPin className="w-4 h-4 text-[#146c43]" /> Geometrías GPS ({detail.geoFeatures?.length ?? 0})
               </h3>
-              <div className="inline-flex rounded-lg border border-[#d8e3df] p-0.5 bg-[#f2f6f4]">
+              <div className="inline-flex rounded-lg border border-[#d9e2ec] p-0.5 bg-[#f2f6f4]">
                 {([
                   { key: 'POINT', label: 'Punto' },
                   { key: 'LINE', label: 'Línea' },
@@ -465,7 +465,7 @@ function ActividadDetailInner() {
                       setDraftPoints([]);
                     }}
                     className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-colors ${
-                      drawKind === opt.key ? 'bg-[#0b3b60] text-white' : 'text-slate-600 hover:bg-white'
+                      drawKind === opt.key ? 'bg-[#006fb3] text-white' : 'text-slate-600 hover:bg-white'
                     }`}
                   >
                     {opt.label}
@@ -481,19 +481,19 @@ function ActividadDetailInner() {
                   onChange={(e) => setSearchZone(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && searchAddressOnWebMap()}
                   placeholder="Buscar dirección, comuna o zona (ej. Talca, Rancagua)..."
-                  className="flex-1 px-3 py-1.5 border border-[#d8e3df] rounded-lg text-xs bg-white"
+                  className="flex-1 px-3 py-1.5 border border-[#d9e2ec] rounded-lg text-xs bg-white"
                 />
                 <button
                   type="button"
                   onClick={searchAddressOnWebMap}
                   disabled={searchingZone}
-                  className="px-3 py-1.5 bg-[#0b3b60] hover:bg-[#0f4c81] text-white rounded-lg text-xs font-semibold"
+                  className="px-3 py-1.5 bg-[#006fb3] hover:bg-[#0f69c4] text-white rounded-lg text-xs font-semibold"
                 >
                   {searchingZone ? 'Buscando...' : 'Ir a zona'}
                 </button>
               </div>
               {zoneSuggestions.length > 0 && (
-                <div className="absolute left-0 right-0 mt-1 bg-white border border-[#d8e3df] rounded-lg shadow-lg z-30 max-h-44 overflow-y-auto">
+                <div className="absolute left-0 right-0 mt-1 bg-white border border-[#d9e2ec] rounded-lg shadow-lg z-30 max-h-44 overflow-y-auto">
                   {zoneSuggestions.map((s, idx) => (
                     <button
                       key={`${s.lat}-${s.lon}-${idx}`}
@@ -516,7 +516,7 @@ function ActividadDetailInner() {
               value={geoLabel}
               onChange={(e) => setGeoLabel(e.target.value)}
               placeholder={`Etiqueta de referencia para ${drawKind === 'POINT' ? 'el punto' : drawKind === 'LINE' ? 'la línea' : 'el polígono'} (opcional)`}
-              className="w-full px-3 py-1.5 border border-[#d8e3df] rounded-lg text-xs bg-white"
+              className="w-full px-3 py-1.5 border border-[#d9e2ec] rounded-lg text-xs bg-white"
             />
 
             <MapClient
@@ -540,13 +540,13 @@ function ActividadDetailInner() {
                   value={latInput}
                   onChange={(e) => setLatInput(e.target.value)}
                   placeholder="Latitud (ej. -33.4489)"
-                  className="flex-1 min-w-[115px] px-2.5 py-1.5 border border-[#d8e3df] rounded-lg text-xs"
+                  className="flex-1 min-w-[115px] px-2.5 py-1.5 border border-[#d9e2ec] rounded-lg text-xs"
                 />
                 <input
                   value={lngInput}
                   onChange={(e) => setLngInput(e.target.value)}
                   placeholder="Longitud (ej. -70.6693)"
-                  className="flex-1 min-w-[115px] px-2.5 py-1.5 border border-[#d8e3df] rounded-lg text-xs"
+                  className="flex-1 min-w-[115px] px-2.5 py-1.5 border border-[#d9e2ec] rounded-lg text-xs"
                 />
                 <button
                   type="button"
@@ -563,14 +563,14 @@ function ActividadDetailInner() {
                     <button
                       type="button"
                       onClick={() => setDraftPoints((p) => p.slice(0, -1))}
-                      className="inline-flex items-center gap-1 px-2.5 py-1 border border-[#d8e3df] rounded-md text-xs text-slate-600 hover:bg-slate-50"
+                      className="inline-flex items-center gap-1 px-2.5 py-1 border border-[#d9e2ec] rounded-md text-xs text-slate-600 hover:bg-slate-50"
                     >
                       <Undo2 className="w-3 h-3" /> Deshacer
                     </button>
                     <button
                       type="button"
                       onClick={() => setDraftPoints([])}
-                      className="inline-flex items-center gap-1 px-2.5 py-1 border border-[#d8e3df] rounded-md text-xs text-red-600 hover:bg-red-50"
+                      className="inline-flex items-center gap-1 px-2.5 py-1 border border-[#d9e2ec] rounded-md text-xs text-red-600 hover:bg-red-50"
                     >
                       <Trash2 className="w-3 h-3" /> Limpiar
                     </button>
@@ -603,7 +603,7 @@ function ActividadDetailInner() {
                 </div>
                 <div className="max-h-40 overflow-y-auto space-y-1.5 pr-1">
                   {detail.geoFeatures.map((gf: any) => (
-                    <div key={gf.id} className="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg bg-[#f8fbfa] border border-[#d8e3df] text-xs">
+                    <div key={gf.id} className="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg bg-[#f8fbfa] border border-[#d9e2ec] text-xs">
                       <div className="min-w-0">
                         <span className="font-bold text-[#0e7490] mr-1.5">{gf.kind}</span>
                         <span className="text-slate-700 truncate">{gf.label || gf.code}</span>
@@ -624,12 +624,12 @@ function ActividadDetailInner() {
           </div>
 
           {/* Documents & Traceability */}
-          <div className="bg-white p-5 rounded-xl border border-[#d8e3df] shadow-sm space-y-5">
+          <div className="bg-white p-5 rounded-xl border border-[#d9e2ec] shadow-sm space-y-5">
           {qrData && (
-            <div className="p-3.5 rounded-xl border border-[#d8e3df] bg-[#f2f6f4] flex items-center gap-4">
+            <div className="p-3.5 rounded-xl border border-[#d9e2ec] bg-[#f2f6f4] flex items-center gap-4">
               <img src={qrData.qrDataUrl} alt={`QR ${detail.activity.folio}`} className="w-24 h-24 rounded-lg border border-white shadow-sm bg-white p-1" />
               <div className="min-w-0 flex-1">
-                <div className="text-xs font-bold uppercase tracking-wide text-[#0b3b60]">QR de Acceso Rápido (Terreno)</div>
+                <div className="text-xs font-bold uppercase tracking-wide text-[#006fb3]">QR de Acceso Rápido (Terreno)</div>
                 <div className="text-sm font-mono font-bold text-[#146c43] mt-0.5">{detail.activity.folio}</div>
                 <p className="text-xs text-slate-600 mt-1">
                   Escanee este código desde la app móvil TerrenoCNR para abrir directamente los detalles de esta OT.

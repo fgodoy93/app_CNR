@@ -178,7 +178,7 @@ export function DynamicFormRenderer({
                     disabled={busyKey === f.key}
                     onClick={() => void toggleRecording(f.key, true)}
                     className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-white ${
-                      recordingKey === f.key ? 'bg-red-600 animate-pulse' : 'bg-[#0b3b60] hover:bg-[#0f4c81]'
+                      recordingKey === f.key ? 'bg-red-600 animate-pulse' : 'bg-[#006fb3] hover:bg-[#0f69c4]'
                     }`}
                   >
                     {busyKey === f.key
@@ -315,7 +315,7 @@ export function DynamicFormRenderer({
                       disabled={busyKey === f.key}
                       onClick={() => void toggleRecording(f.key, false)}
                       className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-white ${
-                        recordingKey === f.key ? 'bg-red-600 animate-pulse' : 'bg-[#0b3b60] hover:bg-[#0f4c81]'
+                        recordingKey === f.key ? 'bg-red-600 animate-pulse' : 'bg-[#006fb3] hover:bg-[#0f69c4]'
                       }`}
                     >
                       {busyKey === f.key

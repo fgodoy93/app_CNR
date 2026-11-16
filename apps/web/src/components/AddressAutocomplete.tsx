@@ -61,13 +61,13 @@ export function AddressAutocomplete({
           }}
           onFocus={() => setOpen(true)}
           placeholder={placeholder}
-          className="w-full pl-8 pr-3 py-2 border border-[#d8e3df] rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#0b3b60]/20"
+          className="w-full pl-8 pr-3 py-2 border border-[#d9e2ec] rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#006fb3]/20"
         />
         {loading && <span className="absolute right-3 text-[11px] text-slate-400">Buscando...</span>}
       </div>
 
       {open && suggestions.length > 0 && (
-        <div className="absolute left-0 right-0 mt-1 bg-white border border-[#d8e3df] rounded-lg shadow-lg z-40 max-h-52 overflow-y-auto">
+        <div className="absolute left-0 right-0 mt-1 bg-white border border-[#d9e2ec] rounded-lg shadow-lg z-40 max-h-52 overflow-y-auto">
           {suggestions.map((s, idx) => (
             <button
               key={`${s.lat}-${s.lon}-${idx}`}

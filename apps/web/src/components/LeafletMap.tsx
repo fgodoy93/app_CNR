@@ -107,7 +107,7 @@ export function LeafletMap({
         const [lng, lat] = f.geometry.coordinates as [number, number];
         const marker = L.circleMarker([lat, lng], {
           radius: 8,
-          color: '#0b3b60',
+          color: '#006fb3',
           fillColor: '#146c43',
           fillOpacity: 0.9,
           weight: 2,

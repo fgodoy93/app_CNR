@@ -97,7 +97,7 @@ export default function UsuariosPage() {
           <button onClick={() => setShowRoleModal(true)} className="inline-flex items-center gap-1 px-3 py-2 border border-slate-300 bg-white rounded-lg text-sm font-medium">
             <Plus className="w-4 h-4" /> Rol
           </button>
-          <button onClick={() => setShowModal(true)} className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#0f4c81] text-white rounded-lg text-sm font-medium">
+          <button onClick={() => setShowModal(true)} className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#0f69c4] text-white rounded-lg text-sm font-medium">
             <Plus className="w-4 h-4" /> Nuevo Usuario
           </button>
         </div>
@@ -179,7 +179,7 @@ export default function UsuariosPage() {
             </select>
             <div className="flex justify-end gap-2">
               <button type="button" onClick={() => setShowModal(false)} className="px-4 py-2 border rounded-lg text-sm">Cancelar</button>
-              <button type="submit" className="px-4 py-2 bg-[#0f4c81] text-white rounded-lg text-sm">Crear</button>
+              <button type="submit" className="px-4 py-2 bg-[#0f69c4] text-white rounded-lg text-sm">Crear</button>
             </div>
           </form>
         </div>
@@ -193,7 +193,7 @@ export default function UsuariosPage() {
             <input value={unitForm.name} onChange={(e) => setUnitForm({ ...unitForm, name: e.target.value })} placeholder="Nombre completo de la unidad" className="w-full px-3 py-2 border rounded-lg text-sm" required />
             <div className="flex justify-end gap-2">
               <button type="button" onClick={() => setShowUnitModal(false)} className="px-4 py-2 border rounded-lg text-sm">Cancelar</button>
-              <button type="submit" className="px-4 py-2 bg-[#0f4c81] text-white rounded-lg text-sm">Crear Unidad</button>
+              <button type="submit" className="px-4 py-2 bg-[#0f69c4] text-white rounded-lg text-sm">Crear Unidad</button>
             </div>
           </form>
         </div>
@@ -208,7 +208,7 @@ export default function UsuariosPage() {
             <textarea value={roleForm.permissions} onChange={(e) => setRoleForm({ ...roleForm, permissions: e.target.value })} rows={2} className="w-full px-3 py-2 border rounded-lg text-xs font-mono" required />
             <div className="flex justify-end gap-2">
               <button type="button" onClick={() => setShowRoleModal(false)} className="px-4 py-2 border rounded-lg text-sm">Cancelar</button>
-              <button type="submit" className="px-4 py-2 bg-[#0f4c81] text-white rounded-lg text-sm">Crear Rol</button>
+              <button type="submit" className="px-4 py-2 bg-[#0f69c4] text-white rounded-lg text-sm">Crear Rol</button>
             </div>
           </form>
         </div>

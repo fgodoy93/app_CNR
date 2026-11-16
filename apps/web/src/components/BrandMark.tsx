@@ -1,7 +1,7 @@
 export function BrandMark({ size = 36 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 40 40" fill="none" aria-label="Logo TerrenoCNR">
-      <rect width="40" height="40" rx="10" fill="#0B3B60" />
+      <rect width="40" height="40" rx="10" fill="#006fb3" />
       {/* Surcos de riego / agua */}
       <path d="M8 29C12 26 16 26 20 29C24 32 28 32 32 29" stroke="#38BDF8" strokeWidth="2.4" strokeLinecap="round" />
       <path d="M8 33.5C12 31 16 31 20 33.5C24 36 28 36 32 33.5" stroke="#0E7490" strokeWidth="2" strokeLinecap="round" />

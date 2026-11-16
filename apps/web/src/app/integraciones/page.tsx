@@ -64,7 +64,7 @@ export default function IntegracionesPage() {
           <h3 className="font-semibold text-slate-800 flex items-center gap-2"><Key className="w-4 h-4 text-blue-700" /> API Keys (REST Bidireccional)</h3>
           <form onSubmit={createApiKey} className="flex gap-2">
             <input value={newKeyName} onChange={(e) => setNewKeyName(e.target.value)} placeholder="Nombre sistema externo (ej. SIG CNR)" className="flex-1 px-3 py-2 border rounded-lg text-sm" required />
-            <button type="submit" className="px-4 py-2 bg-[#0f4c81] text-white rounded-lg text-sm font-medium">Generar</button>
+            <button type="submit" className="px-4 py-2 bg-[#0f69c4] text-white rounded-lg text-sm font-medium">Generar</button>
           </form>
           {createdKey && (
             <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs">
@@ -98,7 +98,7 @@ export default function IntegracionesPage() {
             <input type="url" value={whForm.url} onChange={(e) => setWhForm({ ...whForm, url: e.target.value })} placeholder="https://sistema.cnr.gob.cl/webhook" className="w-full px-3 py-2 border rounded-lg text-sm" required />
             <div className="flex gap-2">
               <input value={whForm.events} onChange={(e) => setWhForm({ ...whForm, events: e.target.value })} placeholder="Eventos (* o activity.closed)" className="flex-1 px-3 py-2 border rounded-lg text-sm" />
-              <button type="submit" className="px-4 py-2 bg-[#0f4c81] text-white rounded-lg text-sm font-medium">Suscribir</button>
+              <button type="submit" className="px-4 py-2 bg-[#0f69c4] text-white rounded-lg text-sm font-medium">Suscribir</button>
             </div>
           </form>
           <div className="space-y-2 text-sm">
@@ -118,7 +118,7 @@ export default function IntegracionesPage() {
             <input value={connForm.key} onChange={(e) => setConnForm({ ...connForm, key: e.target.value })} placeholder="clave (ej. ley18450)" className="px-3 py-2 border rounded-lg text-sm font-mono" required />
             <input value={connForm.name} onChange={(e) => setConnForm({ ...connForm, name: e.target.value })} placeholder="Nombre sistema" className="px-3 py-2 border rounded-lg text-sm" required />
             <input type="url" value={connForm.urlTemplate} onChange={(e) => setConnForm({ ...connForm, urlTemplate: e.target.value })} placeholder="https://api.cnr.gob.cl/proyectos?q={{query}}" className="px-3 py-2 border rounded-lg text-sm" required />
-            <button type="submit" className="px-4 py-2 bg-[#0f4c81] text-white rounded-lg text-sm font-medium">Agregar Conector</button>
+            <button type="submit" className="px-4 py-2 bg-[#0f69c4] text-white rounded-lg text-sm font-medium">Agregar Conector</button>
           </form>
           <div className="space-y-2 text-sm">
             {connectors.length === 0 ? (

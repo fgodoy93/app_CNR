@@ -112,7 +112,7 @@ export default function FormulariosPage() {
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-3">
           <div className="flex justify-between items-center">
             <h3 className="font-semibold text-slate-800">Plantillas</h3>
-            <button onClick={() => setShowNew(true)} className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-[#0f4c81] text-white rounded-lg text-xs font-medium">
+            <button onClick={() => setShowNew(true)} className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-[#0f69c4] text-white rounded-lg text-xs font-medium">
               <Plus className="w-3.5 h-3.5" /> Nueva
             </button>
           </div>
@@ -394,7 +394,7 @@ export default function FormulariosPage() {
 
               <div className="pt-4 border-t space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-semibold text-[#0b3b60]">👁️ Vista Previa en Vivo (como se verá en terreno)</span>
+                  <span className="text-sm font-semibold text-[#006fb3]">👁️ Vista Previa en Vivo (como se verá en terreno)</span>
                   <button
                     type="button"
                     onClick={() => setPreviewValues({})}
@@ -403,7 +403,7 @@ export default function FormulariosPage() {
                     Limpiar respuestas
                   </button>
                 </div>
-                <div className="p-4 rounded-xl border border-[#d8e3df] bg-[#f8fbfa]">
+                <div className="p-4 rounded-xl border border-[#d9e2ec] bg-[#f8fbfa]">
                   <DynamicFormRenderer
                     definition={{ fields, rules }}
                     values={previewValues}
@@ -425,7 +425,7 @@ export default function FormulariosPage() {
             <textarea value={newForm.description} onChange={(e) => setNewForm({ ...newForm, description: e.target.value })} placeholder="Descripción" className="w-full px-3 py-2 border rounded-lg text-sm" />
             <div className="flex justify-end gap-2">
               <button type="button" onClick={() => setShowNew(false)} className="px-4 py-2 border rounded-lg text-sm">Cancelar</button>
-              <button type="submit" className="px-4 py-2 bg-[#0f4c81] text-white rounded-lg text-sm">Crear</button>
+              <button type="submit" className="px-4 py-2 bg-[#0f69c4] text-white rounded-lg text-sm">Crear</button>
             </div>
           </form>
         </div>

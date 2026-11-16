@@ -91,20 +91,20 @@ export default function ActividadesPage() {
               onChange={(e) => setQ(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && load()}
               placeholder="Buscar folio, título o dirección..."
-              className="pl-9 pr-3 py-2 border border-[#d8e3df] rounded-lg text-sm bg-white w-72 focus:outline-none focus:ring-2 focus:ring-[#0e7490]"
+              className="pl-9 pr-3 py-2 border border-[#d9e2ec] rounded-lg text-sm bg-white w-72 focus:outline-none focus:ring-2 focus:ring-[#0e7490]"
             />
           </div>
-          <button onClick={load} className="px-3.5 py-2 bg-white border border-[#d8e3df] hover:bg-slate-50 text-slate-700 rounded-lg text-sm font-medium">
+          <button onClick={load} className="px-3.5 py-2 bg-white border border-[#d9e2ec] hover:bg-slate-50 text-slate-700 rounded-lg text-sm font-medium">
             Actualizar
           </button>
         </div>
 
         <div className="flex items-center gap-2">
-          <div className="inline-flex rounded-lg border border-[#d8e3df] bg-white p-0.5">
+          <div className="inline-flex rounded-lg border border-[#d9e2ec] bg-white p-0.5">
             <button
               onClick={() => setViewMode('list')}
               className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${
-                viewMode === 'list' ? 'bg-[#0b3b60] text-white' : 'text-slate-600 hover:bg-slate-50'
+                viewMode === 'list' ? 'bg-[#006fb3] text-white' : 'text-slate-600 hover:bg-slate-50'
               }`}
             >
               <LayoutList className="w-3.5 h-3.5" />
@@ -122,7 +122,7 @@ export default function ActividadesPage() {
           </div>
           <button
             onClick={() => setShowModal(true)}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-[#0b3b60] hover:bg-[#0f4c81] text-white text-sm font-medium rounded-lg shadow-sm"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-[#006fb3] hover:bg-[#0f69c4] text-white text-sm font-medium rounded-lg shadow-sm"
           >
             <Plus className="w-4 h-4" />
             Crear Orden / Inspección
@@ -144,8 +144,8 @@ export default function ActividadesPage() {
             onClick={() => setStatus(pill.key)}
             className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors border ${
               status === pill.key
-                ? 'bg-[#0b3b60] text-white border-[#0b3b60]'
-                : 'bg-white text-slate-600 border-[#d8e3df] hover:bg-slate-50'
+                ? 'bg-[#006fb3] text-white border-[#006fb3]'
+                : 'bg-white text-slate-600 border-[#d9e2ec] hover:bg-slate-50'
             }`}
           >
             {pill.label}
@@ -158,7 +158,7 @@ export default function ActividadesPage() {
           {KANBAN_COLS.map((col) => {
             const colItems = filteredActivities.filter((a) => a.status === col.key || (col.key === 'EN_REVISION' && a.status === 'EN_APROBACION'));
             return (
-              <div key={col.key} className={`bg-[#f7faf9] rounded-xl border border-[#d8e3df] border-t-4 ${col.accent} p-3`}>
+              <div key={col.key} className={`bg-[#f7faf9] rounded-xl border border-[#d9e2ec] border-t-4 ${col.accent} p-3`}>
                 <div className="flex items-center justify-between mb-3">
                   <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${col.badge}`}>{col.label}</span>
                   <span className="text-xs font-bold text-slate-500">{colItems.length}</span>
@@ -173,7 +173,7 @@ export default function ActividadesPage() {
                       <Link
                         key={a.id}
                         href={`/actividades/${a.id}`}
-                        className="block bg-white p-3 rounded-lg border border-[#d8e3df] shadow-sm hover:border-[#0b3b60] transition-colors"
+                        className="block bg-white p-3 rounded-lg border border-[#d9e2ec] shadow-sm hover:border-[#006fb3] transition-colors"
                       >
                         <div className="flex items-center justify-between gap-1 mb-1">
                           <span className="font-mono text-xs font-bold text-[#0e7490]">{a.folio}</span>
@@ -201,7 +201,7 @@ export default function ActividadesPage() {
                               const doc = await api.post<{ id: string; verifyCode: string }>(`/api/v1/activities/${a.id}/documents`, { kind: 'REPORT' });
                               await api.download(`/api/v1/documents/${doc.id}/download`, `${a.folio}-informe.pdf`);
                             }}
-                            className="text-[#0b3b60] font-semibold hover:underline"
+                            className="text-[#006fb3] font-semibold hover:underline"
                           >
                             📄 PDF
                           </button>
@@ -324,7 +324,7 @@ export default function ActividadesPage() {
             </div>
             <div className="flex justify-end gap-2 pt-2">
               <button type="button" onClick={() => setShowModal(false)} className="px-4 py-2 border rounded-lg text-sm">Cancelar</button>
-              <button type="submit" disabled={saving} className="px-4 py-2 bg-[#0f4c81] text-white rounded-lg text-sm font-medium">
+              <button type="submit" disabled={saving} className="px-4 py-2 bg-[#0f69c4] text-white rounded-lg text-sm font-medium">
                 {saving ? 'Creando...' : 'Crear Actividad'}
               </button>
             </div>

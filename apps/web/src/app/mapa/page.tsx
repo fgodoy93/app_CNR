@@ -52,8 +52,8 @@ export default function MapaPage() {
                 onClick={() => setKindFilter(k.key)}
                 className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
                   kindFilter === k.key
-                    ? 'bg-[#0b3b60] text-white border-[#0b3b60]'
-                    : 'bg-white text-slate-600 border-[#d8e3df] hover:bg-slate-50'
+                    ? 'bg-[#006fb3] text-white border-[#006fb3]'
+                    : 'bg-white text-slate-600 border-[#d9e2ec] hover:bg-slate-50'
                 }`}
               >
                 {k.label} ({cnt})
@@ -65,13 +65,13 @@ export default function MapaPage() {
         <div className="flex flex-wrap gap-2">
           <button
             onClick={() => api.download('/api/v1/geo/export/geojson', 'terreno-cnr.geojson')}
-            className="inline-flex items-center gap-1.5 px-3 py-2 bg-white border border-[#d8e3df] hover:bg-slate-50 rounded-lg text-xs font-semibold text-slate-700"
+            className="inline-flex items-center gap-1.5 px-3 py-2 bg-white border border-[#d9e2ec] hover:bg-slate-50 rounded-lg text-xs font-semibold text-slate-700"
           >
             <Download className="w-3.5 h-3.5" /> GeoJSON
           </button>
           <button
             onClick={() => api.download('/api/v1/geo/export/kml', 'terreno-cnr.kml')}
-            className="inline-flex items-center gap-1.5 px-3 py-2 bg-white border border-[#d8e3df] hover:bg-slate-50 rounded-lg text-xs font-semibold text-slate-700"
+            className="inline-flex items-center gap-1.5 px-3 py-2 bg-white border border-[#d9e2ec] hover:bg-slate-50 rounded-lg text-xs font-semibold text-slate-700"
           >
             <Download className="w-3.5 h-3.5" /> KML (Google Earth)
           </button>
@@ -97,7 +97,7 @@ export default function MapaPage() {
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="Filtrar por folio OT, título o etiqueta..."
-          className="flex-1 min-w-[220px] max-w-xs px-3 py-2 border border-[#d8e3df] rounded-lg text-sm bg-white"
+          className="flex-1 min-w-[220px] max-w-xs px-3 py-2 border border-[#d9e2ec] rounded-lg text-sm bg-white"
         />
       </div>
 
@@ -105,8 +105,8 @@ export default function MapaPage() {
         <div className="lg:col-span-8">
           <MapClient features={filtered} height="560px" focusFeatureId={focusId} focusCenter={focusCenter} />
         </div>
-        <div className="lg:col-span-4 bg-white rounded-xl border border-[#d8e3df] shadow-sm p-4 max-h-[560px] flex flex-col">
-          <h3 className="font-semibold text-[#0b3b60] text-sm mb-3 flex items-center gap-2">
+        <div className="lg:col-span-4 bg-white rounded-xl border border-[#d9e2ec] shadow-sm p-4 max-h-[560px] flex flex-col">
+          <h3 className="font-semibold text-[#006fb3] text-sm mb-3 flex items-center gap-2">
             <MapPin className="w-4 h-4 text-[#146c43]" /> Registros en Mapa ({filtered.length})
           </h3>
           <div className="space-y-2.5 overflow-y-auto pr-1">
@@ -119,8 +119,8 @@ export default function MapaPage() {
                   onClick={() => setFocusId(f.id)}
                   className={`p-3 rounded-lg border text-xs space-y-1 cursor-pointer transition-colors ${
                     focusId === f.id
-                      ? 'border-[#0b3b60] bg-emerald-50/60 shadow-sm'
-                      : 'border-[#d8e3df] bg-[#f8fbfa] hover:border-[#0e7490]'
+                      ? 'border-[#006fb3] bg-emerald-50/60 shadow-sm'
+                      : 'border-[#d9e2ec] bg-[#f8fbfa] hover:border-[#0e7490]'
                   }`}
                 >
                   <div className="flex items-center justify-between gap-2">
