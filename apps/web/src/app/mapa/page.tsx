@@ -50,7 +50,7 @@ export default function MapaPage() {
               <button
                 key={k.key || 'ALL'}
                 onClick={() => setKindFilter(k.key)}
-                className={`btn btn-sm ${
+                className={`btn btn-default-size ${
                   kindFilter === k.key ? 'btn-primary' : 'btn-outline-secondary'
                 }`}
               >
@@ -95,7 +95,7 @@ export default function MapaPage() {
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="Filtrar por folio OT, título o etiqueta..."
-          className="flex-1 min-w-[220px] max-w-xs px-3 py-2 border border-[#d9e2ec] rounded-lg text-sm bg-white"
+          className="gob-input flex-1 min-w-[220px] max-w-xs"
         />
       </div>
 
