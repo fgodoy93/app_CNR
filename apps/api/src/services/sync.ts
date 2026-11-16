@@ -14,12 +14,12 @@ export async function processSyncPush(
   const results: SyncResult[] = [];
 
   for (const m of mutations) {
-    // Check if mutation was already processed (idempotency)
+    // Check if mutation was already applied (idempotency); allow retrying previously rejected mutations
     const existing = await prisma.syncMutation.findUnique({
       where: { mutationId: m.mutationId },
     });
 
-    if (existing) {
+    if (existing && existing.status === 'applied') {
       results.push({
         mutationId: m.mutationId,
         entityId: m.entityId,
@@ -79,14 +79,20 @@ export async function processSyncPush(
         }
       }
 
-      await prisma.syncMutation.create({
-        data: {
+      await prisma.syncMutation.upsert({
+        where: { mutationId: m.mutationId },
+        create: {
           mutationId: m.mutationId,
           deviceId,
           userId: actor.userId || 'system',
           entity: m.entity,
           entityId: m.entityId,
           status: 'applied',
+          message: null,
+        },
+        update: {
+          status: 'applied',
+          message: null,
         },
       });
 
@@ -98,13 +104,18 @@ export async function processSyncPush(
       });
       syncMutations.inc({ status: 'applied' });
     } catch (err: any) {
-      await prisma.syncMutation.create({
-        data: {
+      await prisma.syncMutation.upsert({
+        where: { mutationId: m.mutationId },
+        create: {
           mutationId: m.mutationId,
           deviceId,
           userId: actor.userId || 'system',
           entity: m.entity,
           entityId: m.entityId,
+          status: 'rejected',
+          message: err.message?.slice(0, 500),
+        },
+        update: {
           status: 'rejected',
           message: err.message?.slice(0, 500),
         },

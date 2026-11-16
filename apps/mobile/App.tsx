@@ -163,10 +163,18 @@ function AppContent() {
     syncingRef.current = true;
     setSyncing(true);
     try {
+      const db = await getDb();
+      if (!silent) {
+        // Reintentar automáticamente mutaciones rechazadas previamente al sincronizar manualmente
+        await db.runAsync(`UPDATE sync_queue SET status = 'PENDING', error = NULL WHERE status = 'REJECTED'`);
+      }
       const summary = await syncAll();
       await refreshLocal();
+      const rejectedCntRow = await db.getFirstAsync<{ cnt: number }>(
+        `SELECT COUNT(*) as cnt FROM sync_queue WHERE status = 'REJECTED'`,
+      );
+      const rejectedCnt = rejectedCntRow?.cnt ?? 0;
       if (selectedIdRef.current) {
-        const db = await getDb();
         const fresh = await db.getFirstAsync<any>(`SELECT * FROM activities WHERE id = ?`, [selectedIdRef.current]);
         if (fresh) {
           setSelected(fresh);
@@ -177,8 +185,10 @@ function AppContent() {
       setLastAutoSyncAt(new Date().toLocaleTimeString('es-CL'));
       if (!silent) {
         Alert.alert(
-          'Sincronización Completa',
-          `Actividades: ${summary.pulledActivities}\nMutaciones enviadas: ${summary.pushedMutations}\nEvidencias subidas: ${summary.uploadedEvidences}`,
+          rejectedCnt > 0 ? 'Sincronización con Observaciones' : 'Sincronización Completa',
+          `Actividades: ${summary.pulledActivities}\nMutaciones enviadas: ${summary.pushedMutations}\nEvidencias subidas: ${summary.uploadedEvidences}${
+            rejectedCnt > 0 ? `\n\n⚠️ ${rejectedCnt} cambio(s) rechazado(s) por el servidor. Revisa la pestaña Sincronizar.` : ''
+          }`,
         );
       }
     } catch (e: any) {
