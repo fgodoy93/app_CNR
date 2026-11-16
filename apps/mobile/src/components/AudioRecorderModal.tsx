@@ -269,7 +269,7 @@ const styles = StyleSheet.create({
   timer: { fontSize: 28, fontWeight: '800', color: COLORS.primary, fontVariant: ['tabular-nums'] },
   meta: { fontSize: 11, color: COLORS.muted, marginTop: 4 },
   row: { flexDirection: 'row', gap: 10 },
-  btn: { flex: 1, borderRadius: 10, paddingVertical: 11, alignItems: 'center' },
+  btn: { flex: 1, borderRadius: 4, paddingVertical: 11, alignItems: 'center', minHeight: 42, justifyContent: 'center' },
   btnTxt: { color: '#fff', fontWeight: '700', fontSize: 13 },
   label: { fontSize: 12, fontWeight: '700', color: COLORS.primary, marginTop: 14, marginBottom: 6 },
   input: {

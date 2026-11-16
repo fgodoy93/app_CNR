@@ -155,8 +155,8 @@ const styles = StyleSheet.create({
   chipTxtActive: { color: '#fff' },
   input: { borderWidth: 1, borderColor: COLORS.border, borderRadius: 10, padding: 10, fontSize: 13, color: COLORS.text },
   actions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8, marginTop: 6 },
-  btnSec: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 10, backgroundColor: '#e2ebe7' },
-  btnPri: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 10, backgroundColor: COLORS.green },
-  gpsBtn: { alignSelf: 'flex-start', backgroundColor: '#e0f2fe', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8 },
+  btnSec: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 4, backgroundColor: '#e2ebe7' },
+  btnPri: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 4, backgroundColor: COLORS.primary },
+  gpsBtn: { alignSelf: 'flex-start', backgroundColor: COLORS.waterSoft, borderWidth: 1, borderColor: COLORS.primary, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 4 },
   gpsBtnTxt: { color: '#0369a1', fontSize: 12, fontWeight: '700' },
 });

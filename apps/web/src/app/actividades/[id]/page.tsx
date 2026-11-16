@@ -333,7 +333,7 @@ function ActividadDetailInner() {
           <div className="bg-white p-5 rounded-xl border border-[#d9e2ec] shadow-sm">
             <div className="sticky top-0 z-10 bg-white/95 backdrop-blur flex justify-between items-center pb-3 mb-4 border-b border-slate-100">
               <h3 className="font-semibold text-[#006fb3]">Formulario Digital</h3>
-              <button onClick={saveForm} className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-[#146c43] hover:bg-[#0f5434] text-white rounded-lg text-sm font-medium shadow-sm">
+              <button onClick={saveForm} className="btn btn-success btn-sm">
                 <Save className="w-4 h-4" /> Guardar Datos
               </button>
             </div>

@@ -127,7 +127,7 @@ export default function LoginPage() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-[#006fb3] hover:bg-[#0f69c4] text-white font-semibold py-2.5 rounded-lg transition-colors shadow-sm disabled:opacity-50"
+                className="btn btn-primary btn-default-size w-full"
               >
                 {loading ? 'Ingresando...' : 'Ingresar a Plataforma'}
               </button>
@@ -144,7 +144,7 @@ export default function LoginPage() {
                     setEmail('admin@cnr.gob.cl');
                     setPassword('Cnr2026!Demo');
                   }}
-                  className="text-xs px-3 py-1.5 rounded-lg border border-[#d9e2ec] bg-[#f2f6f4] hover:bg-emerald-50 text-[#006fb3] font-medium"
+                  className="btn btn-outline-primary btn-sm"
                 >
                   Administrador CNR
                 </button>
@@ -154,7 +154,7 @@ export default function LoginPage() {
                     setEmail('terreno@cnr.gob.cl');
                     setPassword('Cnr2026!Demo');
                   }}
-                  className="text-xs px-3 py-1.5 rounded-lg border border-[#d9e2ec] bg-[#f2f6f4] hover:bg-emerald-50 text-[#146c43] font-medium"
+                  className="btn btn-outline-primary btn-sm"
                 >
                   Inspector Terreno
                 </button>
