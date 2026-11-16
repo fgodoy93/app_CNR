@@ -151,7 +151,8 @@ Herramientas disponibles: list_activities, get_activity, create_work_order, get_
         {/* Deliveries Log */}
         <div className="lg:col-span-2 bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
           <h3 className="font-semibold text-slate-800 mb-3">Historial de Entregas Webhook (con Reintentos)</h3>
-          <table className="w-full text-xs text-left">
+          <div className="overflow-x-auto">
+          <table className="w-full text-xs text-left min-w-[520px]">
             <thead className="bg-slate-50 text-slate-500 uppercase">
               <tr>
                 <th className="px-3 py-2">Evento</th>
@@ -177,6 +178,7 @@ Herramientas disponibles: list_activities, get_activity, create_work_order, get_
               )}
             </tbody>
           </table>
+          </div>
         </div>
       </div>
     </AppShell>

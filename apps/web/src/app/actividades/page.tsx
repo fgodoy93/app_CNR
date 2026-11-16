@@ -83,23 +83,23 @@ export default function ActividadesPage() {
       {error && <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">{error}</div>}
 
       <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
-        <div className="flex flex-wrap gap-2 items-center">
-          <div className="relative">
+        <div className="flex flex-wrap gap-2 items-center w-full sm:w-auto">
+          <div className="relative flex-1 min-w-0 sm:flex-initial">
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
               value={q}
               onChange={(e) => setQ(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && load()}
               placeholder="Buscar folio, título o dirección..."
-              className="gob-input pl-9 w-72"
+              className="gob-input pl-9 w-full sm:w-72"
             />
           </div>
-          <button onClick={load} className="btn btn-outline-secondary btn-default-size">
+          <button onClick={load} className="btn btn-outline-secondary btn-default-size shrink-0">
             Actualizar
           </button>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
           <div className="inline-flex h-[40px] items-center rounded-[4px] border border-[#d9e2ec] bg-white p-0.5">
             <button
               onClick={() => setViewMode('list')}
@@ -295,7 +295,7 @@ export default function ActividadesPage() {
               <label className="block text-sm font-medium mb-1">Descripción</label>
               <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-sm" rows={2} />
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="block text-sm font-medium mb-1">Prioridad</label>
                 <select value={form.priority} onChange={(e) => setForm({ ...form, priority: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-sm">

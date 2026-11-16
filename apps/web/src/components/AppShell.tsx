@@ -77,6 +77,13 @@ export function AppShell({ title, children }: { title: string; children: React.R
 
   return (
     <div className="min-h-screen flex bg-[#f2f6f4] text-[#0f241d]">
+      {mobileOpen && (
+        <div
+          onClick={() => setMobileOpen(false)}
+          className="fixed inset-0 z-30 bg-slate-900/45 backdrop-blur-[1px] lg:hidden"
+          aria-hidden="true"
+        />
+      )}
       {/* Sidebar */}
       <aside
         className={`fixed inset-y-0 left-0 z-40 w-64 bg-gradient-to-b from-[#006fb3] via-[#0a3456] to-[#082942] text-white flex flex-col transition-transform lg:sticky lg:top-0 lg:h-screen lg:shrink-0 lg:translate-x-0 ${
@@ -144,13 +151,13 @@ export function AppShell({ title, children }: { title: string; children: React.R
       {/* Main */}
       <div className="flex-1 flex flex-col min-w-0">
         <div className="gob-stripe lg:hidden" />
-        <header className="h-16 bg-white border-b border-[#d9e2ec] px-4 lg:px-8 flex items-center justify-between sticky top-0 z-30">
-          <div className="flex items-center gap-3">
-            <button onClick={() => setMobileOpen(true)} className="lg:hidden p-2 rounded-lg hover:bg-slate-100">
+        <header className="h-16 bg-white border-b border-[#d9e2ec] px-3 sm:px-4 lg:px-8 flex items-center justify-between gap-2 sticky top-0 z-30">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+            <button onClick={() => setMobileOpen(true)} className="lg:hidden p-2 rounded-lg hover:bg-slate-100 shrink-0" aria-label="Abrir menú">
               <Menu className="w-5 h-5" />
             </button>
-            <div>
-              <h1 className="text-lg font-bold text-[#006fb3] truncate">{title}</h1>
+            <div className="min-w-0 flex-1">
+              <h1 className="text-base sm:text-lg font-bold text-[#006fb3] truncate">{title}</h1>
             </div>
           </div>
 
@@ -174,7 +181,7 @@ export function AppShell({ title, children }: { title: string; children: React.R
             </button>
 
             {showNotifs && (
-              <div className="absolute right-0 mt-2 w-80 bg-white border border-slate-200 rounded-xl shadow-xl z-50 max-h-96 overflow-y-auto">
+              <div className="absolute right-0 mt-2 w-[min(20rem,calc(100vw-1.5rem))] bg-white border border-slate-200 rounded-xl shadow-xl z-50 max-h-96 overflow-y-auto">
                 <div className="px-4 py-3 border-b border-slate-100 font-semibold text-sm flex justify-between items-center">
                   <span>Notificaciones</span>
                   <span className="text-xs text-slate-500">{unread} sin leer</span>
@@ -205,7 +212,7 @@ export function AppShell({ title, children }: { title: string; children: React.R
 
         <footer className="mt-auto bg-white border-t border-[#d9e2ec]">
           <div className="gob-stripe" />
-          <div className="max-w-7xl mx-auto px-4 lg:px-8 py-4 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-600">
+          <div className="max-w-7xl mx-auto px-4 lg:px-8 py-4 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-600 text-center sm:text-left">
             <div className="font-semibold text-[#006fb3]">
               Comisión Nacional de Riego (CNR) · Ministerio de Agricultura · Gobierno de Chile
             </div>

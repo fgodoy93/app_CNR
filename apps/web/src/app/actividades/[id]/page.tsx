@@ -379,7 +379,7 @@ function ActividadDetailInner() {
               value={comment}
               onChange={(e) => setComment(e.target.value)}
               placeholder="Comentario / observación para la transición..."
-              className="px-3 py-1.5 border border-slate-300 rounded-lg text-sm w-72"
+              className="px-3 py-1.5 border border-slate-300 rounded-lg text-sm w-full sm:w-72"
             />
             {detail.availableTransitions.map((t: any) => (
               <button

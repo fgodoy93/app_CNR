@@ -82,8 +82,8 @@ export default function MapaPage() {
         </div>
       </div>
 
-      <div className="mb-4 flex flex-wrap gap-3 items-center">
-        <div className="flex-1 min-w-[240px] max-w-md">
+      <div className="mb-4 flex flex-col sm:flex-row flex-wrap gap-3 items-stretch sm:items-center">
+        <div className="w-full sm:flex-1 sm:min-w-[220px] sm:max-w-md">
           <AddressAutocomplete
             value={searchAddr}
             onChange={setSearchAddr}
@@ -95,15 +95,15 @@ export default function MapaPage() {
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="Filtrar por folio OT, título o etiqueta..."
-          className="gob-input flex-1 min-w-[220px] max-w-xs"
+          className="gob-input w-full sm:flex-1 sm:min-w-[200px] sm:max-w-xs"
         />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
         <div className="lg:col-span-8">
-          <MapClient features={filtered} height="560px" focusFeatureId={focusId} focusCenter={focusCenter} />
+          <MapClient features={filtered} height="clamp(340px, 58vh, 560px)" focusFeatureId={focusId} focusCenter={focusCenter} />
         </div>
-        <div className="lg:col-span-4 bg-white rounded-xl border border-[#d9e2ec] shadow-sm p-4 max-h-[560px] flex flex-col">
+        <div className="lg:col-span-4 bg-white rounded-xl border border-[#d9e2ec] shadow-sm p-4 max-h-[420px] lg:max-h-[560px] flex flex-col">
           <h3 className="font-semibold text-[#006fb3] text-sm mb-3 flex items-center gap-2">
             <MapPin className="w-4 h-4 text-[#146c43]" /> Registros en Mapa ({filtered.length})
           </h3>

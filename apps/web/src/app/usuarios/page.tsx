@@ -103,8 +103,8 @@ export default function UsuariosPage() {
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden mb-6">
-        <table className="w-full text-sm text-left">
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto mb-6">
+        <table className="w-full text-sm text-left min-w-[640px]">
           <thead className="bg-slate-50 text-slate-500 text-xs uppercase">
             <tr>
               <th className="px-4 py-3">Nombre</th>
