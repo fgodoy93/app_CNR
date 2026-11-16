@@ -75,7 +75,7 @@ export default function WorkflowsPage() {
 
       <div className="flex justify-between items-center mb-4">
         <p className="text-sm text-slate-500">Configure flujos de autorización, notificaciones, generación de PDF y webhooks.</p>
-        <button onClick={() => setShowModal(true)} className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#0f69c4] text-white rounded-lg text-sm font-medium">
+        <button onClick={() => setShowModal(true)} className="btn btn-primary btn-default-size">
           <Plus className="w-4 h-4" /> Nuevo Flujo
         </button>
       </div>
@@ -157,8 +157,8 @@ export default function WorkflowsPage() {
               <textarea value={statesText} onChange={(e) => setStatesText(e.target.value)} rows={3} className="w-full px-3 py-2 border rounded-lg text-xs font-mono" required />
             </div>
             <div className="flex justify-end gap-2">
-              <button type="button" onClick={() => setShowModal(false)} className="px-4 py-2 border rounded-lg text-sm">Cancelar</button>
-              <button type="submit" className="px-4 py-2 bg-[#0f69c4] text-white rounded-lg text-sm">Crear Flujo</button>
+              <button type="button" onClick={() => setShowModal(false)} className="btn btn-outline-secondary btn-default-size">Cancelar</button>
+              <button type="submit" className="btn btn-primary btn-default-size">Crear Flujo</button>
             </div>
           </form>
         </div>

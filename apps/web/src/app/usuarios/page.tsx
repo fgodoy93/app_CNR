@@ -90,14 +90,14 @@ export default function UsuariosPage() {
 
       <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
         <p className="text-sm text-slate-500">Capacidad licenciada: {users.filter((u) => u.active).length} / 45 usuarios habilitados</p>
-        <div className="flex gap-2">
-          <button onClick={() => setShowUnitModal(true)} className="inline-flex items-center gap-1 px-3 py-2 border border-slate-300 bg-white rounded-lg text-sm font-medium">
+        <div className="flex flex-wrap gap-2">
+          <button onClick={() => setShowUnitModal(true)} className="btn btn-outline-secondary btn-default-size">
             <Plus className="w-4 h-4" /> Unidad
           </button>
-          <button onClick={() => setShowRoleModal(true)} className="inline-flex items-center gap-1 px-3 py-2 border border-slate-300 bg-white rounded-lg text-sm font-medium">
+          <button onClick={() => setShowRoleModal(true)} className="btn btn-outline-secondary btn-default-size">
             <Plus className="w-4 h-4" /> Rol
           </button>
-          <button onClick={() => setShowModal(true)} className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#0f69c4] text-white rounded-lg text-sm font-medium">
+          <button onClick={() => setShowModal(true)} className="btn btn-primary btn-default-size">
             <Plus className="w-4 h-4" /> Nuevo Usuario
           </button>
         </div>

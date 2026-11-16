@@ -208,7 +208,7 @@ export function MobileMapView({ activities, geoFeatures, onSelectActivity }: Mob
 
 const styles = StyleSheet.create({
   subBar: { flexDirection: 'row', gap: 8, paddingHorizontal: 12, paddingVertical: 8, backgroundColor: COLORS.surface, borderBottomWidth: 1, borderBottomColor: COLORS.border },
-  subBtn: { flex: 1, paddingVertical: 7, borderRadius: 8, alignItems: 'center', backgroundColor: '#e8efec' },
+  subBtn: { flex: 1, paddingVertical: 7, borderRadius: 4, alignItems: 'center', backgroundColor: '#e8efec' },
   subBtnActive: { backgroundColor: COLORS.primary },
   subTxt: { fontSize: 12, fontWeight: '700', color: COLORS.text },
   subTxtActive: { color: '#fff' },

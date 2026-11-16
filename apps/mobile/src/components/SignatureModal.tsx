@@ -73,6 +73,6 @@ const styles = StyleSheet.create({
   title: { fontSize: 16, fontWeight: '700', marginBottom: 12, color: '#0f172a' },
   pad: { height: 220, borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 8, backgroundColor: '#f8fafc' },
   actions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8, marginTop: 12 },
-  btnSec: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 8, backgroundColor: '#e2e8f0' },
-  btnPri: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 8, backgroundColor: '#0f4c81' },
+  btnSec: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 4, backgroundColor: '#e2e8f0' },
+  btnPri: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 4, backgroundColor: '#006fb3' },
 });

@@ -127,7 +127,7 @@ const styles = StyleSheet.create({
   heroCard: { backgroundColor: COLORS.primary, borderRadius: 14, padding: 16 },
   heroEyebrow: { fontSize: 10, fontWeight: '700', color: '#a7f3d0', letterSpacing: 0.6 },
   heroTitle: { fontSize: 18, fontWeight: '800', color: '#fff', marginTop: 2 },
-  heroBtn: { backgroundColor: COLORS.green, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8 },
+  heroBtn: { backgroundColor: COLORS.green, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 4 },
   heroBtnTxt: { color: '#fff', fontWeight: '700', fontSize: 12 },
   kpiGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   kpiCard: { width: '48%', backgroundColor: COLORS.surface, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: COLORS.border, borderTopWidth: 4 },

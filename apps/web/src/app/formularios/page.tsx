@@ -144,10 +144,10 @@ export default function FormulariosPage() {
                   <p className="text-xs text-slate-500">Versión publicada actual: v{selected.currentVersion}</p>
                 </div>
                 <div className="flex gap-2">
-                  <button onClick={() => saveAndPublish(false)} className="inline-flex items-center gap-1.5 px-3 py-1.5 border rounded-lg text-sm">
+                  <button onClick={() => saveAndPublish(false)} className="btn btn-outline-secondary btn-sm">
                     <Save className="w-4 h-4" /> Guardar borrador
                   </button>
-                  <button onClick={() => saveAndPublish(true)} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-700 text-white rounded-lg text-sm">
+                  <button onClick={() => saveAndPublish(true)} className="btn btn-success btn-sm">
                     <UploadCloud className="w-4 h-4" /> Publicar versión
                   </button>
                 </div>
@@ -424,8 +424,8 @@ export default function FormulariosPage() {
             <input value={newForm.name} onChange={(e) => setNewForm({ ...newForm, name: e.target.value })} placeholder="Nombre del formulario" className="w-full px-3 py-2 border rounded-lg text-sm" required />
             <textarea value={newForm.description} onChange={(e) => setNewForm({ ...newForm, description: e.target.value })} placeholder="Descripción" className="w-full px-3 py-2 border rounded-lg text-sm" />
             <div className="flex justify-end gap-2">
-              <button type="button" onClick={() => setShowNew(false)} className="px-4 py-2 border rounded-lg text-sm">Cancelar</button>
-              <button type="submit" className="px-4 py-2 bg-[#0f69c4] text-white rounded-lg text-sm">Crear</button>
+              <button type="button" onClick={() => setShowNew(false)} className="btn btn-outline-secondary btn-default-size">Cancelar</button>
+              <button type="submit" className="btn btn-primary btn-default-size">Crear</button>
             </div>
           </form>
         </div>

@@ -62,10 +62,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   title: { color: '#fff', fontWeight: '700', fontSize: 16 },
-  closeBtn: { paddingHorizontal: 12, paddingVertical: 6, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 6 },
+  closeBtn: { paddingHorizontal: 12, paddingVertical: 6, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 4 },
   closeTxt: { color: '#fff', fontWeight: '600' },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
   info: { color: '#fff', textAlign: 'center', marginBottom: 16 },
-  permBtn: { backgroundColor: '#0284c7', paddingHorizontal: 20, paddingVertical: 12, borderRadius: 8 },
+  permBtn: { backgroundColor: '#006fb3', paddingHorizontal: 20, paddingVertical: 12, borderRadius: 4 },
   permTxt: { color: '#fff', fontWeight: '700' },
 });

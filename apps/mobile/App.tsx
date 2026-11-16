@@ -557,8 +557,9 @@ function AppContent() {
 
   if (!ready) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color="#0f4c81" />
+      <View style={[styles.center, { backgroundColor: '#ffffff', gap: 16 }]}>
+        <CnrLogoFull width={240} height={110} />
+        <ActivityIndicator size="large" color={COLORS.primary} />
       </View>
     );
   }
