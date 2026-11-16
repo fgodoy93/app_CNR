@@ -156,11 +156,13 @@ export async function syncAll(): Promise<SyncSummary> {
 
   for (const a of pull.activities) {
     await db.runAsync(
-      `INSERT OR REPLACE INTO activities (id, folio, typeId, typeName, title, description, priority, status, progress, formVersionId, data, externalRef, address, lat, lng, version, updatedAt)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT OR REPLACE INTO activities (id, folio, parentId, parentFolio, typeId, typeName, title, description, priority, status, progress, formVersionId, data, externalRef, address, lat, lng, version, updatedAt)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         a.id,
         a.folio,
+        a.parentId ?? null,
+        a.parent?.folio ?? null,
         a.type.id,
         a.type.name,
         a.title,

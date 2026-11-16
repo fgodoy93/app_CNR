@@ -184,6 +184,12 @@ export default function ActividadesPage() {
                         </div>
                         <div className="text-xs font-semibold text-slate-800 line-clamp-2">{a.title}</div>
                         <div className="text-[11px] text-slate-500 mt-1 truncate">{a.type?.name}</div>
+                        {a.parent && (
+                          <div className="text-[10px] text-[#006fb3] font-mono mt-0.5 truncate">↳ De {a.parent.folio}</div>
+                        )}
+                        {a.childrenCount > 0 && (
+                          <div className="text-[10px] text-[#146c43] font-semibold mt-0.5">{a.childrenCount} visita(s) asociada(s)</div>
+                        )}
                         <div className="mt-2 h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
                           <div className="h-1.5 bg-[#146c43] rounded-full" style={{ width: `${Math.min(100, a.progress ?? 0)}%` }} />
                         </div>
@@ -240,6 +246,12 @@ export default function ActividadesPage() {
                     </td>
                     <td className="px-4 py-3 font-medium">
                       <Link href={`/actividades/${a.id}`} className="hover:underline">{a.title}</Link>
+                      {a.parent && (
+                        <div className="text-[11px] text-[#006fb3] font-mono">↳ OT Principal: {a.parent.folio}</div>
+                      )}
+                      {a.childrenCount > 0 && (
+                        <div className="text-[11px] text-[#146c43] font-semibold">{a.childrenCount} visita(s) asociada(s)</div>
+                      )}
                     </td>
                     <td className="px-4 py-3">{a.type?.name}</td>
                     <td className="px-4 py-3">

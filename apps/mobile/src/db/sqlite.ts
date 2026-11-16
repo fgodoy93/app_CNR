@@ -15,6 +15,8 @@ export async function getDb(): Promise<SQLite.SQLiteDatabase> {
         CREATE TABLE IF NOT EXISTS activities (
           id TEXT PRIMARY KEY,
           folio TEXT NOT NULL,
+          parentId TEXT,
+          parentFolio TEXT,
           typeId TEXT NOT NULL,
           typeName TEXT,
           title TEXT NOT NULL,
@@ -92,6 +94,16 @@ export async function getDb(): Promise<SQLite.SQLiteDatabase> {
       `);
       try {
         await db.execAsync(`ALTER TABLE activity_types ADD COLUMN workflowId TEXT;`);
+      } catch {
+        // column already exists
+      }
+      try {
+        await db.execAsync(`ALTER TABLE activities ADD COLUMN parentId TEXT;`);
+      } catch {
+        // column already exists
+      }
+      try {
+        await db.execAsync(`ALTER TABLE activities ADD COLUMN parentFolio TEXT;`);
       } catch {
         // column already exists
       }

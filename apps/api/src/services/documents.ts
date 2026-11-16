@@ -209,6 +209,12 @@ export async function generateDocument(
       createdBy: true,
       unit: true,
       formVersion: true,
+      parent: { select: { folio: true, title: true } },
+      children: {
+        where: { deletedAt: null },
+        orderBy: { createdAt: 'asc' },
+        include: { assignee: { select: { name: true } }, type: { select: { name: true } } },
+      },
       geoFeatures: { where: { deletedAt: null }, orderBy: { capturedAt: 'asc' } },
       evidences: {
         where: { deletedAt: null },
@@ -474,11 +480,42 @@ function buildPdf(ctx: {
 
     y += cardH + 12;
 
+    if (activity.parent) {
+      ensureSpace(22);
+      doc.fillColor(PRIMARY).font('Helvetica-Bold').fontSize(8.5).text('OT Principal:', 40, y);
+      doc.fillColor(TEXT).font('Helvetica').fontSize(8.5).text(
+        `${activity.parent.folio} — ${activity.parent.title}`,
+        105,
+        y,
+        { width: contentW - 65 },
+      );
+      y = doc.y + 8;
+    }
+
     if (activity.description) {
       ensureSpace(36);
       doc.fillColor(MUTED).font('Helvetica-Bold').fontSize(8.5).text('Descripción:', 40, y);
       doc.fillColor(TEXT).font('Helvetica').fontSize(8.5).text(activity.description, 40, y + 12, { width: contentW });
       y = doc.y + 10;
+    }
+
+    if (Array.isArray(activity.children) && activity.children.length > 0) {
+      drawSectionHeader(`Visitas Técnicas Asociadas (${activity.children.length})`);
+      activity.children.forEach((v: any, idx: number) => {
+        const vTitle = `${v.folio} · ${v.title}`;
+        const vMeta = `${v.status} · ${v.assignee?.name || 'Sin asignar'} · ${new Date(v.scheduledAt || v.createdAt).toLocaleDateString('es-CL')}`;
+        doc.font('Helvetica-Bold').fontSize(8);
+        const h1 = doc.heightOfString(vTitle, { width: 255 });
+        doc.font('Helvetica').fontSize(8);
+        const h2 = doc.heightOfString(vMeta, { width: 230 });
+        const rowH = Math.max(20, Math.max(h1, h2) + 10);
+        ensureSpace(rowH + 4);
+        doc.rect(40, y, contentW, rowH).fillAndStroke(idx % 2 === 0 ? '#ffffff' : '#f8fafc', BORDER);
+        doc.fillColor(PRIMARY).font('Helvetica-Bold').fontSize(8).text(vTitle, 48, y + 5, { width: 255 });
+        doc.fillColor(MUTED).font('Helvetica').fontSize(8).text(vMeta, 310, y + 5, { width: 235 });
+        y += rowH;
+      });
+      y += 12;
     }
 
     // ==================== 2. FORMULARIO DIGITAL ====================

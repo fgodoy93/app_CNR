@@ -35,7 +35,14 @@ export const activityInclude = {
   assignee: { select: { id: true, name: true, email: true } },
   createdBy: { select: { id: true, name: true, email: true } },
   unit: { select: { id: true, code: true, name: true } },
-  _count: { select: { evidences: { where: { deletedAt: null } }, geoFeatures: { where: { deletedAt: null } } } },
+  parent: { select: { id: true, folio: true, title: true, status: true, type: { select: { name: true, prefix: true, color: true } } } },
+  _count: {
+    select: {
+      evidences: { where: { deletedAt: null } },
+      geoFeatures: { where: { deletedAt: null } },
+      children: { where: { deletedAt: null } },
+    },
+  },
 } satisfies Prisma.ActivityInclude;
 
 export async function loadWorkflow(typeId: string, tx: Tx = prisma): Promise<WorkflowDefinition> {
@@ -86,10 +93,19 @@ export async function createActivity(actor: Actor, input: ActivityCreateInput, t
     formVersionId = v?.id ?? null;
   }
 
+  const parent = input.parentId
+    ? await tx.activity.findFirst({
+        where: { id: input.parentId, deletedAt: null },
+        select: { id: true, unitId: true, lat: true, lng: true, address: true },
+      })
+    : null;
+  if (input.parentId && !parent) throw notFound('OT principal no encontrada');
+
   const folio = await nextFolio(tx, type.prefix);
   const activity = await tx.activity.create({
     data: {
       ...(input.id ? { id: input.id } : {}),
+      parentId: parent?.id ?? null,
       folio,
       typeId: type.id,
       title: input.title,
@@ -98,15 +114,15 @@ export async function createActivity(actor: Actor, input: ActivityCreateInput, t
       status: workflow.initial,
       assigneeId: input.assigneeId ?? null,
       createdById: actor.userId,
-      unitId: input.unitId ?? type.unitId ?? actor.unitId ?? null,
+      unitId: input.unitId ?? parent?.unitId ?? type.unitId ?? actor.unitId ?? null,
       formVersionId,
       data: (input.data ?? {}) as Prisma.InputJsonValue,
       externalData: (input.externalData ?? {}) as Prisma.InputJsonValue,
       externalRef: input.externalRef ?? null,
       externalSource: input.externalSource ?? null,
-      lat: input.lat ?? null,
-      lng: input.lng ?? null,
-      address: input.address ?? null,
+      lat: input.lat ?? parent?.lat ?? null,
+      lng: input.lng ?? parent?.lng ?? null,
+      address: input.address ?? parent?.address ?? null,
       dueAt: input.dueAt ? new Date(input.dueAt) : null,
       scheduledAt: input.scheduledAt ? new Date(input.scheduledAt) : null,
     },
@@ -240,6 +256,8 @@ export function serializeActivity(a: ActivityWithRelations) {
   return {
     id: a.id,
     folio: a.folio,
+    parentId: a.parentId,
+    parent: a.parent ?? null,
     title: a.title,
     description: a.description,
     priority: a.priority,
@@ -265,6 +283,7 @@ export function serializeActivity(a: ActivityWithRelations) {
     version: a.version,
     evidenceCount: a._count?.evidences ?? 0,
     geoFeatureCount: a._count?.geoFeatures ?? 0,
+    childrenCount: a._count?.children ?? 0,
     createdAt: a.createdAt,
     updatedAt: a.updatedAt,
   };

@@ -678,6 +678,11 @@ function AppContent() {
               <Text style={styles.meta}>Prioridad: {selected.priority} · {selected.progress}%</Text>
             </View>
             <Text style={styles.cardTitle}>{selected.title}</Text>
+            {selected.parentFolio ? (
+              <Text style={{ color: COLORS.primary, fontSize: 12, fontWeight: '700', marginTop: 2 }}>
+                ↳ OT Principal: {selected.parentFolio}
+              </Text>
+            ) : null}
             {selected.address ? <Text style={styles.meta}>📍 {selected.address}</Text> : null}
             {typeof selected.lat === 'number' && typeof selected.lng === 'number' ? (
               <TouchableOpacity

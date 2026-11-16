@@ -19,10 +19,11 @@ export const activitiesRoutes: FastifyPluginAsync = async (app) => {
   app.addHook('preHandler', app.authenticate);
 
   app.get('/', async (req) => {
-    const { status, priority, typeId, q } = req.query as {
+    const { status, priority, typeId, parentId, q } = req.query as {
       status?: string;
       priority?: string;
       typeId?: string;
+      parentId?: string;
       q?: string;
     };
     const list = await prisma.activity.findMany({
@@ -32,6 +33,7 @@ export const activitiesRoutes: FastifyPluginAsync = async (app) => {
           ...(status ? [{ status }] : []),
           ...(priority ? [{ priority: priority as never }] : []),
           ...(typeId ? [{ typeId }] : []),
+          ...(parentId === 'root' ? [{ parentId: null }] : parentId ? [{ parentId }] : []),
           ...(q
             ? [
                 {
@@ -65,7 +67,7 @@ export const activitiesRoutes: FastifyPluginAsync = async (app) => {
     const transitions = availableTransitions(wf, { status: act.status, assigneeId: act.assigneeId }, req.actor);
     const formDef = await loadFormDefinition(act.formVersionId);
 
-    const [geoFeatures, evidences, transitionHistory, documents, comments] = await Promise.all([
+    const [geoFeatures, evidences, transitionHistory, documents, comments, visits] = await Promise.all([
       prisma.geoFeature.findMany({ where: { activityId: act.id, deletedAt: null }, orderBy: { capturedAt: 'asc' } }),
       prisma.evidence.findMany({
         where: { activityId: act.id, deletedAt: null },
@@ -84,6 +86,11 @@ export const activitiesRoutes: FastifyPluginAsync = async (app) => {
       prisma.activityComment.findMany({
         where: { activityId: act.id },
         include: { user: { select: { id: true, name: true } } },
+        orderBy: { createdAt: 'asc' },
+      }),
+      prisma.activity.findMany({
+        where: { AND: [activityScope(req.actor), { parentId: act.id }] },
+        include: activityInclude,
         orderBy: { createdAt: 'asc' },
       }),
     ]);
@@ -119,6 +126,7 @@ export const activitiesRoutes: FastifyPluginAsync = async (app) => {
 
     return {
       activity: serializeActivity(act),
+      visits: visits.map(serializeActivity),
       availableTransitions: transitions,
       formDefinition: formDef,
       workflow: wf,

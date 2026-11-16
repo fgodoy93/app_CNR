@@ -10,7 +10,7 @@ import { AuditDiffView } from '@/components/AuditDiffView';
 import { MapClient } from '@/components/MapClient';
 import { api, API_BASE, getToken } from '@/lib/api';
 import { closeRing, type Position } from '@terreno/shared';
-import { FileText, MapPin, Upload, Save, CheckCircle, ArrowLeft, Undo2, Trash2 } from 'lucide-react';
+import { FileText, MapPin, Upload, Save, CheckCircle, ArrowLeft, Undo2, Trash2, Plus, GitBranch } from 'lucide-react';
 
 function ActividadDetailInner() {
   const { id } = useParams<{ id: string }>();
@@ -29,6 +29,11 @@ function ActividadDetailInner() {
   const [searchingZone, setSearchingZone] = useState(false);
   const [zoneSuggestions, setZoneSuggestions] = useState<{ display_name: string; lat: string; lon: string }[]>([]);
   const [focusCenter, setFocusCenter] = useState<{ lat: number; lng: number; zoom?: number } | null>(null);
+  const [types, setTypes] = useState<any[]>([]);
+  const [users, setUsers] = useState<any[]>([]);
+  const [showVisitModal, setShowVisitModal] = useState(false);
+  const [creatingVisit, setCreatingVisit] = useState(false);
+  const [visitForm, setVisitForm] = useState({ typeId: '', title: '', description: '', assigneeId: '', scheduledAt: '' });
 
   useEffect(() => {
     const q = searchZone.trim();
@@ -66,7 +71,46 @@ function ActividadDetailInner() {
 
   useEffect(() => {
     if (id) load();
+    api.get<{ data: any[] }>('/api/v1/admin/activity-types').then((r) => {
+      setTypes(r.data);
+      const vt = r.data.find((t: any) => t.prefix === 'VT' || t.key === 'visita_tecnica') || r.data[0];
+      if (vt) setVisitForm((f) => ({ ...f, typeId: f.typeId || vt.id }));
+    }).catch(() => undefined);
+    api.get<{ data: any[] }>('/api/v1/admin/users').then((r) => setUsers(r.data)).catch(() => undefined);
   }, [id]);
+
+  const createChildVisit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!detail?.activity || !visitForm.title.trim()) return;
+    setCreatingVisit(true);
+    setError(null);
+    try {
+      const parentAct = detail.activity;
+      const vtTypeId = visitForm.typeId || parentAct.type?.id;
+      const inheritedData =
+        parentAct.data && typeof parentAct.data === 'object' && parentAct.data.codigo_cnr
+          ? { codigo_cnr: parentAct.data.codigo_cnr }
+          : undefined;
+      await api.post('/api/v1/activities', {
+        parentId: parentAct.id,
+        typeId: vtTypeId,
+        title: visitForm.title.trim(),
+        description: visitForm.description.trim() || null,
+        priority: parentAct.priority,
+        assigneeId: visitForm.assigneeId || null,
+        scheduledAt: visitForm.scheduledAt ? new Date(visitForm.scheduledAt).toISOString() : null,
+        ...(inheritedData ? { data: inheritedData } : {}),
+      });
+      setShowVisitModal(false);
+      setVisitForm((f) => ({ ...f, title: '', description: '', scheduledAt: '' }));
+      setMsg('Visita técnica asociada creada correctamente.');
+      load();
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setCreatingVisit(false);
+    }
+  };
 
   const saveForm = async () => {
     setError(null);
@@ -278,6 +322,16 @@ function ActividadDetailInner() {
       <div className="bg-white p-5 rounded-xl border border-[#d9e2ec] shadow-sm mb-6">
         <div className="flex flex-wrap justify-between gap-4 items-start">
           <div className="flex-1 min-w-[260px]">
+            {a.parent && (
+              <div className="mb-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-sky-50 border border-sky-200 text-xs text-[#006fb3]">
+                <GitBranch className="w-3.5 h-3.5" />
+                <span>OT Principal:</span>
+                <Link href={`/actividades/${a.parent.id}`} className="font-mono font-bold hover:underline">
+                  {a.parent.folio}
+                </Link>
+                <span className="text-slate-600 truncate max-w-xs">— {a.parent.title}</span>
+              </div>
+            )}
             <div className="flex items-center gap-2 mb-1">
               <span className="font-mono text-sm font-bold text-[#0e7490]">{a.folio}</span>
               <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-sky-50 text-[#006fb3]">{a.status}</span>
@@ -331,6 +385,133 @@ function ActividadDetailInner() {
           </div>
         )}
       </div>
+
+      {/* Visitas Técnicas Asociadas (Relación Padre-Hijo) */}
+      {(!a.parent || (detail.visits?.length ?? 0) > 0) && (
+        <div className="bg-white p-5 rounded-xl border border-[#d9e2ec] shadow-sm mb-6">
+          <div className="flex flex-wrap justify-between items-center gap-3 mb-3">
+            <div>
+              <h3 className="font-semibold text-[#006fb3] flex items-center gap-2">
+                <GitBranch className="w-4 h-4" />
+                Visitas Técnicas / Sub-órdenes Asociadas ({detail.visits?.length ?? 0})
+              </h3>
+              <p className="text-xs text-slate-500">
+                Registra múltiples salidas a terreno vinculadas a esta OT manteniendo ubicación y código de obra.
+              </p>
+            </div>
+            {!a.parent && (
+              <button
+                onClick={() => {
+                  const nextNum = (detail.visits?.length ?? 0) + 1;
+                  setVisitForm((f) => ({
+                    ...f,
+                    title: f.title || `Visita Técnica #${nextNum} — ${a.title}`,
+                  }));
+                  setShowVisitModal(true);
+                }}
+                className="btn btn-primary btn-sm"
+              >
+                <Plus className="w-4 h-4" /> Programar Nueva Visita
+              </button>
+            )}
+          </div>
+          {detail.visits?.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {detail.visits.map((v: any) => (
+                <Link
+                  key={v.id}
+                  href={`/actividades/${v.id}`}
+                  className="block p-3 rounded-lg border border-slate-200 hover:border-[#006fb3] hover:bg-sky-50/30 transition"
+                >
+                  <div className="flex items-center justify-between gap-2 mb-1">
+                    <span className="font-mono text-xs font-bold text-[#0e7490]">{v.folio}</span>
+                    <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-sky-50 text-[#006fb3]">
+                      {v.status}
+                    </span>
+                  </div>
+                  <p className="text-sm font-medium text-slate-800 truncate">{v.title}</p>
+                  <p className="text-xs text-slate-500 mt-1">
+                    {v.assignee?.name || 'Sin asignar'} · {new Date(v.scheduledAt || v.createdAt).toLocaleDateString('es-CL')}
+                  </p>
+                  <p className="text-[11px] text-slate-400 mt-1">
+                    GPS: {v.geoFeatureCount ?? 0} · Evidencias: {v.evidenceCount ?? 0}
+                  </p>
+                </Link>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-slate-400 italic">Aún no hay visitas técnicas asociadas a esta OT.</p>
+          )}
+        </div>
+      )}
+
+      {showVisitModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/40 flex items-center justify-center p-4">
+          <form onSubmit={createChildVisit} className="bg-white rounded-xl border border-[#d9e2ec] shadow-xl w-full max-w-md p-5 space-y-3">
+            <h3 className="text-base font-bold text-[#006fb3]">Nueva Visita Técnica para {a.folio}</h3>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Tipo de Actividad</label>
+              <select
+                value={visitForm.typeId}
+                onChange={(e) => setVisitForm({ ...visitForm, typeId: e.target.value })}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
+              >
+                {types.map((t) => (
+                  <option key={t.id} value={t.id}>{t.name} ({t.prefix})</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Título de la visita *</label>
+              <input
+                required
+                value={visitForm.title}
+                onChange={(e) => setVisitForm({ ...visitForm, title: e.target.value })}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Inspector asignado</label>
+              <select
+                value={visitForm.assigneeId}
+                onChange={(e) => setVisitForm({ ...visitForm, assigneeId: e.target.value })}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
+              >
+                <option value="">Sin asignar</option>
+                {users.map((u) => (
+                  <option key={u.id} value={u.id}>{u.name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Fecha programada</label>
+              <input
+                type="datetime-local"
+                value={visitForm.scheduledAt}
+                onChange={(e) => setVisitForm({ ...visitForm, scheduledAt: e.target.value })}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Objetivo / Instrucciones</label>
+              <textarea
+                rows={2}
+                value={visitForm.description}
+                onChange={(e) => setVisitForm({ ...visitForm, description: e.target.value })}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
+              />
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <button type="button" onClick={() => setShowVisitModal(false)} className="btn btn-secondary btn-sm">
+                Cancelar
+              </button>
+              <button type="submit" disabled={creatingVisit} className="btn btn-primary btn-sm">
+                {creatingVisit ? 'Creando...' : 'Crear Visita'}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* Columna Izquierda: Formulario + Evidencias */}

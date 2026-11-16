@@ -83,6 +83,7 @@ export const geometrySchema = z.discriminatedUnion('type', [
 
 export const activityCreateSchema = z.object({
   id: z.string().regex(UUID_RE).optional(),
+  parentId: z.string().regex(UUID_RE).optional().nullable(),
   typeId: z.string().min(1),
   title: z.string().min(1).max(300),
   description: z.string().max(5000).optional().nullable(),
