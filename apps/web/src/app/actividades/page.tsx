@@ -82,29 +82,29 @@ export default function ActividadesPage() {
     <AppShell title="Gestión de Actividades y Órdenes de Trabajo">
       {error && <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">{error}</div>}
 
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
         <div className="flex flex-wrap gap-2 items-center">
           <div className="relative">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
             <input
               value={q}
               onChange={(e) => setQ(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && load()}
               placeholder="Buscar folio, título o dirección..."
-              className="pl-9 pr-3 py-2 border border-[#d9e2ec] rounded-lg text-sm bg-white w-72 focus:outline-none focus:ring-2 focus:ring-[#0e7490]"
+              className="gob-input pl-9 w-72"
             />
           </div>
-          <button onClick={load} className="px-3.5 py-2 bg-white border border-[#d9e2ec] hover:bg-slate-50 text-slate-700 rounded-lg text-sm font-medium">
+          <button onClick={load} className="btn btn-outline-secondary btn-default-size">
             Actualizar
           </button>
         </div>
 
-        <div className="flex items-center gap-2">
-          <div className="inline-flex rounded-lg border border-[#d9e2ec] bg-white p-0.5">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="inline-flex rounded-[4px] border border-[#d9e2ec] bg-white p-0.5">
             <button
               onClick={() => setViewMode('list')}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${
-                viewMode === 'list' ? 'bg-[#006fb3] text-white' : 'text-slate-600 hover:bg-slate-50'
+              className={`btn btn-sm border-0 ${
+                viewMode === 'list' ? 'btn-primary' : 'bg-transparent text-slate-600 hover:bg-slate-50'
               }`}
             >
               <LayoutList className="w-3.5 h-3.5" />
@@ -112,8 +112,8 @@ export default function ActividadesPage() {
             </button>
             <button
               onClick={() => setViewMode('kanban')}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${
-                viewMode === 'kanban' ? 'bg-[#146c43] text-white' : 'text-slate-600 hover:bg-slate-50'
+              className={`btn btn-sm border-0 ${
+                viewMode === 'kanban' ? 'btn-success' : 'bg-transparent text-slate-600 hover:bg-slate-50'
               }`}
             >
               <Columns3 className="w-3.5 h-3.5" />
@@ -122,7 +122,7 @@ export default function ActividadesPage() {
           </div>
           <button
             onClick={() => setShowModal(true)}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-[#006fb3] hover:bg-[#0f69c4] text-white text-sm font-medium rounded-lg shadow-sm"
+            className="btn btn-primary btn-default-size"
           >
             <Plus className="w-4 h-4" />
             Crear Orden / Inspección

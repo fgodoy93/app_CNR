@@ -109,10 +109,10 @@ export default function FormulariosPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* List */}
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-3">
+        <div className="gob-card space-y-3">
           <div className="flex justify-between items-center">
-            <h3 className="font-semibold text-slate-800">Plantillas</h3>
-            <button onClick={() => setShowNew(true)} className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-[#0f69c4] text-white rounded-lg text-xs font-medium">
+            <h3 className="font-semibold text-[#006fb3]">Plantillas</h3>
+            <button onClick={() => setShowNew(true)} className="btn btn-primary btn-sm">
               <Plus className="w-3.5 h-3.5" /> Nueva
             </button>
           </div>

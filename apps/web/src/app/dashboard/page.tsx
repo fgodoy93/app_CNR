@@ -43,17 +43,17 @@ export default function DashboardPage() {
           <h2 className="text-xl font-bold text-[#006fb3]">Resumen Operacional en Terreno</h2>
           <p className="text-sm text-slate-600">Seguimiento en tiempo real de inspecciones hídricas, obras de riego y visitas técnicas</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <button
             onClick={() => api.download('/api/v1/reports/excel', 'reporte-actividades-cnr.xlsx')}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-[#146c43] hover:bg-[#0f5434] text-white text-sm font-medium rounded-lg shadow-sm transition-colors"
+            className="btn btn-success btn-default-size"
           >
             <Download className="w-4 h-4" />
             Exportar Excel
           </button>
           <Link
             href="/actividades"
-            className="inline-flex items-center gap-2 px-4 py-2 bg-[#006fb3] hover:bg-[#0f69c4] text-white text-sm font-medium rounded-lg shadow-sm transition-colors"
+            className="btn btn-primary btn-default-size"
           >
             <Plus className="w-4 h-4" />
             Nueva Actividad / OT

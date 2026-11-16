@@ -42,7 +42,7 @@ export default function MapaPage() {
 
   return (
     <AppShell title="Visualización Cartográfica y Exportación GPS">
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
         <div className="flex flex-wrap items-center gap-2">
           {KINDS.map((k) => {
             const cnt = k.key ? features.filter((f) => f.kind === k.key).length : features.length;
@@ -50,10 +50,8 @@ export default function MapaPage() {
               <button
                 key={k.key || 'ALL'}
                 onClick={() => setKindFilter(k.key)}
-                className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
-                  kindFilter === k.key
-                    ? 'bg-[#006fb3] text-white border-[#006fb3]'
-                    : 'bg-white text-slate-600 border-[#d9e2ec] hover:bg-slate-50'
+                className={`btn btn-sm ${
+                  kindFilter === k.key ? 'btn-primary' : 'btn-outline-secondary'
                 }`}
               >
                 {k.label} ({cnt})
@@ -65,21 +63,21 @@ export default function MapaPage() {
         <div className="flex flex-wrap gap-2">
           <button
             onClick={() => api.download('/api/v1/geo/export/geojson', 'terreno-cnr.geojson')}
-            className="inline-flex items-center gap-1.5 px-3 py-2 bg-white border border-[#d9e2ec] hover:bg-slate-50 rounded-lg text-xs font-semibold text-slate-700"
+            className="btn btn-outline-secondary btn-default-size"
           >
-            <Download className="w-3.5 h-3.5" /> GeoJSON
+            <Download className="w-4 h-4" /> GeoJSON
           </button>
           <button
             onClick={() => api.download('/api/v1/geo/export/kml', 'terreno-cnr.kml')}
-            className="inline-flex items-center gap-1.5 px-3 py-2 bg-white border border-[#d9e2ec] hover:bg-slate-50 rounded-lg text-xs font-semibold text-slate-700"
+            className="btn btn-outline-secondary btn-default-size"
           >
-            <Download className="w-3.5 h-3.5" /> KML (Google Earth)
+            <Download className="w-4 h-4" /> KML (Google Earth)
           </button>
           <button
             onClick={() => api.download('/api/v1/geo/export/csv', 'terreno-cnr.csv')}
-            className="inline-flex items-center gap-1.5 px-3 py-2 bg-[#146c43] hover:bg-[#0f5434] text-white rounded-lg text-xs font-semibold"
+            className="btn btn-success btn-default-size"
           >
-            <Download className="w-3.5 h-3.5" /> CSV (Excel/SIG)
+            <Download className="w-4 h-4" /> CSV (Excel/SIG)
           </button>
         </div>
       </div>
