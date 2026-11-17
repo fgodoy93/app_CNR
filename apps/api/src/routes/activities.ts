@@ -1,8 +1,10 @@
 import type { FastifyPluginAsync } from 'fastify';
+import { z } from 'zod';
 import QRCode from 'qrcode';
 import { prisma } from '../db';
 import {
   createActivity,
+  autoAssign,
   updateActivity,
   executeTransition,
   getActivityForActor,
@@ -20,10 +22,12 @@ export const activitiesRoutes: FastifyPluginAsync = async (app) => {
   app.addHook('preHandler', app.authenticate);
 
   app.get('/', async (req) => {
-    const { status, priority, typeId, parentId, q } = req.query as {
+    const { status, priority, typeId, assigneeId, unitId, parentId, q } = req.query as {
       status?: string;
       priority?: string;
       typeId?: string;
+      assigneeId?: string;
+      unitId?: string;
       parentId?: string;
       q?: string;
     };
@@ -34,6 +38,8 @@ export const activitiesRoutes: FastifyPluginAsync = async (app) => {
           ...(status ? [{ status }] : []),
           ...(priority ? [{ priority: priority as never }] : []),
           ...(typeId ? [{ typeId }] : []),
+          ...(assigneeId ? [{ assigneeId }] : []),
+          ...(unitId ? [{ unitId }] : []),
           ...(parentId === 'root' ? [{ parentId: null }] : parentId ? [{ parentId }] : []),
           ...(q
             ? [
@@ -59,6 +65,47 @@ export const activitiesRoutes: FastifyPluginAsync = async (app) => {
     const input = activityCreateSchema.parse(req.body);
     const result = await createActivity(req.actor, input);
     return reply.status(result.created ? 201 : 200).send(serializeActivity(result.activity));
+  });
+
+  app.post('/import', async (req, reply) => {
+    const importSchema = z.object({
+      items: z
+        .array(
+          z.object({
+            typeId: z.string().min(1),
+            title: z.string().min(1).max(300),
+            description: z.string().max(5000).optional().nullable(),
+            priority: z.enum(['BAJA', 'MEDIA', 'ALTA', 'CRITICA']).default('MEDIA'),
+            assigneeId: z.string().optional().nullable(),
+            address: z.string().max(500).optional().nullable(),
+            lat: z.number().min(-90).max(90).optional().nullable(),
+            lng: z.number().min(-180).max(180).optional().nullable(),
+            codigoProyecto: z.string().max(120).optional().nullable(),
+          }),
+        )
+        .min(1)
+        .max(200),
+    });
+    const { items } = importSchema.parse(req.body);
+    const created: { id: string; folio: string; title: string }[] = [];
+    for (const item of items) {
+      const res = await createActivity(req.actor, {
+        typeId: item.typeId,
+        title: item.title,
+        description: item.description ?? null,
+        priority: item.priority,
+        assigneeId: item.assigneeId || null,
+        address: item.address || null,
+        lat: item.lat ?? null,
+        lng: item.lng ?? null,
+        ...(item.codigoProyecto ? { data: { codigo_proyecto: item.codigoProyecto } } : {}),
+      });
+      if (item.assigneeId) {
+        await autoAssign(req.actor, res.activity.id).catch(() => undefined);
+      }
+      created.push({ id: res.activity.id, folio: res.activity.folio, title: res.activity.title });
+    }
+    return reply.status(201).send({ count: created.length, created });
   });
 
   app.get('/:id', async (req) => {

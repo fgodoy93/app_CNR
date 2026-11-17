@@ -45,7 +45,14 @@ export const reportsRoutes: FastifyPluginAsync = async (app) => {
   });
 
   app.get('/excel', async (req, reply) => {
-    const buffer = await generateActivitiesExcel(req.actor);
+    const query = req.query as {
+      status?: string;
+      priority?: string;
+      assigneeId?: string;
+      unitId?: string;
+      q?: string;
+    };
+    const buffer = await generateActivitiesExcel(req.actor, query);
     reply.header('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     reply.header('Content-Disposition', 'attachment; filename="reporte-actividades-cnr.xlsx"');
     return buffer;

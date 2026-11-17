@@ -85,7 +85,51 @@ export function MiniLeafletMap({
   <div id="map"></div>
   <script>
     var map = L.map('map').setView([${cLat}, ${cLng}], ${initZoom});
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+    // Caché offline de tiles OSM en IndexedDB para zonas rurales sin cobertura
+    var tileDbPromise = new Promise(function(resolve) {
+      if (!window.indexedDB) return resolve(null);
+      try {
+        var req = indexedDB.open('cnr_osm_tiles', 1);
+        req.onupgradeneeded = function(e) { e.target.result.createObjectStore('tiles'); };
+        req.onsuccess = function(e) { resolve(e.target.result); };
+        req.onerror = function() { resolve(null); };
+      } catch(e) { resolve(null); }
+    });
+    var CachedOsmLayer = L.TileLayer.extend({
+      createTile: function(coords, done) {
+        var tile = document.createElement('img');
+        tile.alt = '';
+        tile.setAttribute('role', 'presentation');
+        var url = this.getTileUrl(coords);
+        var key = coords.z + '/' + coords.x + '/' + coords.y;
+        tileDbPromise.then(function(db) {
+          if (!db) { tile.src = url; tile.onload = function(){ done(null, tile); }; tile.onerror = function(){ done(null, tile); }; return; }
+          var tx = db.transaction('tiles', 'readonly');
+          var getReq = tx.objectStore('tiles').get(key);
+          getReq.onsuccess = function() {
+            if (getReq.result) {
+              tile.src = URL.createObjectURL(getReq.result);
+              tile.onload = function(){ done(null, tile); };
+            } else {
+              fetch(url).then(function(r){ return r.ok ? r.blob() : Promise.reject(); }).then(function(blob) {
+                try {
+                  var wtx = db.transaction('tiles', 'readwrite');
+                  wtx.objectStore('tiles').put(blob, key);
+                } catch(e) {}
+                tile.src = URL.createObjectURL(blob);
+                tile.onload = function(){ done(null, tile); };
+              }).catch(function() {
+                tile.src = url;
+                done(null, tile);
+              });
+            }
+          };
+          getReq.onerror = function() { tile.src = url; done(null, tile); };
+        });
+        return tile;
+      }
+    });
+    new CachedOsmLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
     var bounds = [];
 
     var userLayer = L.layerGroup().addTo(map);

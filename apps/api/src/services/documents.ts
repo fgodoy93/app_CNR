@@ -40,18 +40,24 @@ function extractAllPositions(activity: any): [number, number][] {
   if (typeof activity.lat === 'number' && typeof activity.lng === 'number') {
     pts.push([activity.lng, activity.lat]);
   }
-  for (const gf of activity.geoFeatures ?? []) {
-    const g = gf.geometry;
-    if (!g || !g.coordinates) continue;
-    if (g.type === 'Point' && Array.isArray(g.coordinates)) {
-      pts.push([Number(g.coordinates[0]), Number(g.coordinates[1])]);
-    } else if (g.type === 'LineString' && Array.isArray(g.coordinates)) {
-      for (const c of g.coordinates) pts.push([Number(c[0]), Number(c[1])]);
-    } else if (g.type === 'Polygon' && Array.isArray(g.coordinates)) {
-      for (const ring of g.coordinates) {
-        for (const c of ring) pts.push([Number(c[0]), Number(c[1])]);
+  const collectGeos = (geos: any[]) => {
+    for (const gf of geos ?? []) {
+      const g = gf.geometry;
+      if (!g || !g.coordinates) continue;
+      if (g.type === 'Point' && Array.isArray(g.coordinates)) {
+        pts.push([Number(g.coordinates[0]), Number(g.coordinates[1])]);
+      } else if (g.type === 'LineString' && Array.isArray(g.coordinates)) {
+        for (const c of g.coordinates) pts.push([Number(c[0]), Number(c[1])]);
+      } else if (g.type === 'Polygon' && Array.isArray(g.coordinates)) {
+        for (const ring of g.coordinates) {
+          for (const c of ring) pts.push([Number(c[0]), Number(c[1])]);
+        }
       }
     }
+  };
+  collectGeos(activity.geoFeatures ?? []);
+  for (const child of activity.children ?? []) {
+    collectGeos(child.geoFeatures ?? []);
   }
   return pts.filter(([lng, lat]) => Number.isFinite(lng) && Number.isFinite(lat));
 }
@@ -216,6 +222,7 @@ export async function generateDocument(
         include: {
           assignee: { select: { name: true } },
           type: { select: { name: true } },
+          geoFeatures: { where: { deletedAt: null }, orderBy: { capturedAt: 'asc' } },
           evidences: {
             where: { deletedAt: null },
             include: { uploadedBy: { select: { name: true } } },
@@ -427,11 +434,12 @@ function buildPdf(ctx: {
           } catch {
             doc.fillColor(MUTED).fontSize(8).text('Imagen no compatible', px + 12, y + 45);
           }
-          doc.fillColor(TEXT).font('Helvetica-Bold').fontSize(7.5).text(ph.fileName.slice(0, 36), px + 8, y + 104, { width: 234 });
-          doc.fillColor(MUTED).font('Helvetica').fontSize(7).text(
-            `${new Date(ph.capturedAt).toLocaleString('es-CL')} · ${ph.uploader}`,
+          doc.fillColor(TEXT).font('Helvetica-Bold').fontSize(7.5).text(ph.fileName.slice(0, 36), px + 8, y + 101, { width: 234 });
+          const gpsTag = typeof ph.lat === 'number' && typeof ph.lng === 'number' ? ` · GPS ${ph.lat.toFixed(4)}, ${ph.lng.toFixed(4)}` : '';
+          doc.fillColor(MUTED).font('Helvetica').fontSize(6.8).text(
+            `${new Date(ph.capturedAt).toLocaleString('es-CL')} · ${ph.uploader}${gpsTag}`,
             px + 8,
-            y + 116,
+            y + 113,
             { width: 234 },
           );
         });
@@ -623,10 +631,19 @@ function buildPdf(ctx: {
         doc.circle(px, py, 6).fillAndStroke(RED, '#ffffff');
       }
 
-      // Draw GeoFeatures (Polygons, Lines/Tracks, Points)
-      for (const gf of activity.geoFeatures) {
+      // Draw GeoFeatures (OT Principal + Visitas Técnicas consolidadas)
+      const allMapFeatures: { gf: any; isVisit: boolean; visitFolio?: string }[] = [
+        ...(activity.geoFeatures ?? []).map((gf: any) => ({ gf, isVisit: false })),
+        ...(activity.children ?? []).flatMap((v: any) =>
+          (v.geoFeatures ?? []).map((gf: any) => ({ gf, isVisit: true, visitFolio: v.folio })),
+        ),
+      ];
+      for (const { gf, isVisit } of allMapFeatures) {
         const g = gf.geometry;
         if (!g || !g.coordinates) continue;
+        const polyCol = isVisit ? '#7c3aed' : GREEN;
+        const lineCol = isVisit ? '#7c3aed' : gf.kind === 'TRACK' ? '#d97706' : PRIMARY;
+        const ptCol = isVisit ? '#7c3aed' : PRIMARY;
         if (g.type === 'Polygon') {
           const ring = g.coordinates[0] as [number, number][];
           if (ring?.length >= 3) {
@@ -634,11 +651,11 @@ function buildPdf(ctx: {
             doc.save();
             doc.moveTo(mapped[0]![0], mapped[0]![1]);
             for (let i = 1; i < mapped.length; i++) doc.lineTo(mapped[i]![0], mapped[i]![1]);
-            doc.closePath().fillOpacity(0.28).fillAndStroke(GREEN, GREEN);
+            doc.closePath().fillOpacity(0.26).fillAndStroke(polyCol, polyCol);
             doc.restore();
             const [lx, ly] = mapped[0]!;
             doc.rect(lx + 4, ly - 10, 62, 12).fill('#ffffff');
-            doc.fillColor(GREEN).font('Helvetica-Bold').fontSize(7).text(gf.code, lx + 6, ly - 8);
+            doc.fillColor(polyCol).font('Helvetica-Bold').fontSize(7).text(gf.code, lx + 6, ly - 8);
           }
         } else if (g.type === 'LineString') {
           const coords = g.coordinates as [number, number][];
@@ -646,17 +663,17 @@ function buildPdf(ctx: {
             const mapped = coords.map(([lng, lat]) => toCanvas(lng, lat));
             doc.moveTo(mapped[0]![0], mapped[0]![1]);
             for (let i = 1; i < mapped.length; i++) doc.lineTo(mapped[i]![0], mapped[i]![1]);
-            doc.lineWidth(2.5).strokeColor(gf.kind === 'TRACK' ? '#d97706' : PRIMARY).stroke();
+            doc.lineWidth(2.5).strokeColor(lineCol).stroke();
             const [lx, ly] = mapped[0]!;
             doc.rect(lx + 4, ly - 10, 62, 12).fill('#ffffff');
-            doc.fillColor(PRIMARY).font('Helvetica-Bold').fontSize(7).text(gf.code, lx + 6, ly - 8);
+            doc.fillColor(lineCol).font('Helvetica-Bold').fontSize(7).text(gf.code, lx + 6, ly - 8);
           }
         } else if (g.type === 'Point') {
           const [lng, lat] = g.coordinates as [number, number];
           const [px, py] = toCanvas(lng, lat);
-          doc.circle(px, py, 5.5).lineWidth(1.5).fillAndStroke(PRIMARY, '#ffffff');
+          doc.circle(px, py, 5.5).lineWidth(1.5).fillAndStroke(ptCol, '#ffffff');
           doc.rect(px + 7, py - 7, 68, 12).fill('#ffffff');
-          doc.fillColor(PRIMARY).font('Helvetica-Bold').fontSize(7).text(gf.label ? `${gf.code}` : gf.kind, px + 9, py - 5);
+          doc.fillColor(ptCol).font('Helvetica-Bold').fontSize(7).text(gf.label ? `${gf.code}` : gf.kind, px + 9, py - 5);
         }
       }
       doc.restore();

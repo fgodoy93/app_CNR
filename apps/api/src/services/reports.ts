@@ -8,9 +8,37 @@ function safeCell(v: unknown): string {
   return /^[=+\-@\t\r]/.test(s) ? `'${s}` : s;
 }
 
-export async function generateActivitiesExcel(actor: Actor): Promise<Buffer> {
+export interface ActivityReportFilters {
+  status?: string;
+  priority?: string;
+  assigneeId?: string;
+  unitId?: string;
+  q?: string;
+}
+
+export async function generateActivitiesExcel(actor: Actor, filters: ActivityReportFilters = {}): Promise<Buffer> {
+  const { status, priority, assigneeId, unitId, q } = filters;
   const activities = await prisma.activity.findMany({
-    where: activityScope(actor),
+    where: {
+      AND: [
+        activityScope(actor),
+        ...(status ? [{ status }] : []),
+        ...(priority ? [{ priority: priority as never }] : []),
+        ...(assigneeId ? [{ assigneeId }] : []),
+        ...(unitId ? [{ unitId }] : []),
+        ...(q
+          ? [
+              {
+                OR: [
+                  { folio: { contains: q, mode: 'insensitive' as const } },
+                  { title: { contains: q, mode: 'insensitive' as const } },
+                  { address: { contains: q, mode: 'insensitive' as const } },
+                ],
+              },
+            ]
+          : []),
+      ],
+    },
     include: {
       type: true,
       assignee: true,

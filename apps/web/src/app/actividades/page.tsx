@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { AppShell } from '@/components/AppShell';
 import { AddressAutocomplete } from '@/components/AddressAutocomplete';
 import { api } from '@/lib/api';
-import { Plus, Search, MapPin, Paperclip, LayoutList, Columns3 } from 'lucide-react';
+import { Plus, Search, MapPin, Paperclip, LayoutList, Columns3, Download, Upload } from 'lucide-react';
 
 const KANBAN_COLS = [
   { key: 'PENDIENTE', label: 'Pendiente', accent: 'border-t-slate-400', badge: 'bg-slate-100 text-slate-700' },
@@ -21,16 +21,30 @@ export default function ActividadesPage() {
   const [users, setUsers] = useState<any[]>([]);
   const [q, setQ] = useState('');
   const [status, setStatus] = useState('');
+  const [priorityFilter, setPriorityFilter] = useState('');
+  const [assigneeFilter, setAssigneeFilter] = useState('');
   const [viewMode, setViewMode] = useState<'list' | 'kanban'>('list');
   const [showModal, setShowModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importRows, setImportRows] = useState<any[]>([]);
+  const [importTypeId, setImportTypeId] = useState('');
+  const [importing, setImporting] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
   const [form, setForm] = useState({ typeId: '', title: '', description: '', priority: 'MEDIA', assigneeId: '', address: '', lat: '', lng: '' });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const load = () => {
+  const buildFilterParams = () => {
     const params = new URLSearchParams();
     if (q) params.set('q', q);
     if (status) params.set('status', status);
+    if (priorityFilter) params.set('priority', priorityFilter);
+    if (assigneeFilter) params.set('assigneeId', assigneeFilter);
+    return params;
+  };
+
+  const load = () => {
+    const params = buildFilterParams();
     api.get<{ data: any[] }>(`/api/v1/activities?${params.toString()}`).then((r) => setActivities(r.data)).catch((e) => setError(e.message));
   };
 
@@ -38,7 +52,10 @@ export default function ActividadesPage() {
     load();
     api.get<{ data: any[] }>('/api/v1/admin/activity-types').then((r) => {
       setTypes(r.data);
-      if (r.data[0]) setForm((f) => ({ ...f, typeId: f.typeId || r.data[0].id }));
+      if (r.data[0]) {
+        setForm((f) => ({ ...f, typeId: f.typeId || r.data[0].id }));
+        setImportTypeId((cur) => cur || r.data[0].id);
+      }
     });
     api.get<{ data: any[] }>('/api/v1/admin/users').then((r) => setUsers(r.data));
   }, []);
@@ -75,12 +92,80 @@ export default function ActividadesPage() {
       a.title?.toLowerCase().includes(q.toLowerCase()) ||
       a.address?.toLowerCase().includes(q.toLowerCase());
     const matchStatus = !status || a.status === status || (status === 'EN_REVISION' && a.status === 'EN_APROBACION');
-    return matchText && matchStatus;
+    const matchPriority = !priorityFilter || a.priority === priorityFilter;
+    const matchAssignee = !assigneeFilter || a.assignee?.id === assigneeFilter;
+    return matchText && matchStatus && matchPriority && matchAssignee;
   });
+
+  const handleCsvFile = async (file: File) => {
+    const text = await file.text();
+    const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+    if (lines.length < 2) return setError('El CSV debe tener encabezados y al menos 1 fila.');
+    const sep = lines[0]!.includes(';') ? ';' : ',';
+    const headers = lines[0]!.split(sep).map((h) => h.trim().toLowerCase());
+    const userByEmail = new Map(users.map((u) => [String(u.email || '').toLowerCase(), u.id]));
+    const parsed: any[] = [];
+    for (let i = 1; i < lines.length; i++) {
+      const cols = lines[i]!.split(sep).map((c) => c.trim().replace(/^"|"$/g, ''));
+      const row: Record<string, string> = {};
+      headers.forEach((h, idx) => { row[h] = cols[idx] || ''; });
+      const title = row.titulo || row.title || row.nombre;
+      if (!title) continue;
+      const prioRaw = (row.prioridad || row.priority || 'MEDIA').toUpperCase();
+      const priority = ['BAJA', 'MEDIA', 'ALTA', 'CRITICA'].includes(prioRaw) ? prioRaw : 'MEDIA';
+      const lat = row.latitud || row.lat ? Number(row.latitud || row.lat) : null;
+      const lng = row.longitud || row.lng ? Number(row.longitud || row.lng) : null;
+      const email = (row.correo_inspector || row.email || '').toLowerCase();
+      parsed.push({
+        typeId: importTypeId || types[0]?.id,
+        title,
+        description: row.descripcion || row.description || null,
+        priority,
+        address: row.direccion || row.address || null,
+        lat: Number.isFinite(lat) ? lat : null,
+        lng: Number.isFinite(lng) ? lng : null,
+        codigoProyecto: row.codigo_cnr || row.codigo || null,
+        assigneeId: email ? userByEmail.get(email) || null : null,
+      });
+    }
+    setImportRows(parsed);
+  };
+
+  const runBulkImport = async () => {
+    if (importRows.length === 0) return;
+    setImporting(true);
+    setError(null);
+    setMsg(null);
+    try {
+      const res = await api.post<{ count: number }>('/api/v1/activities/import', {
+        items: importRows.map((r) => ({ ...r, typeId: importTypeId || r.typeId })),
+      });
+      setShowImportModal(false);
+      setImportRows([]);
+      setMsg(`Se importaron ${res.count} órdenes/inspecciones correctamente.`);
+      load();
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  const downloadCsvTemplate = () => {
+    const csv = 'titulo;prioridad;direccion;latitud;longitud;codigo_cnr;correo_inspector;descripcion\nInspección Canal Norte;ALTA;Talca, Maule;-35.4264;-71.6554;CNR-2026-101;terreno@cnr.gob.cl;Revisión de compuerta\n';
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'plantilla-importacion-ot-cnr.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   return (
     <AppShell title="Gestión de Actividades y Órdenes de Trabajo">
       {error && <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">{error}</div>}
+      {msg && <div className="mb-4 p-3 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-lg text-sm">{msg}</div>}
 
       <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
         <div className="flex flex-wrap gap-2 items-center w-full sm:w-auto">
@@ -97,9 +182,50 @@ export default function ActividadesPage() {
           <button onClick={load} className="btn btn-outline-secondary btn-default-size shrink-0">
             Actualizar
           </button>
+          <select
+            value={priorityFilter}
+            onChange={(e) => setPriorityFilter(e.target.value)}
+            className="gob-input w-full sm:w-36"
+            aria-label="Filtrar por prioridad"
+          >
+            <option value="">Prioridad: Todas</option>
+            <option value="BAJA">Baja</option>
+            <option value="MEDIA">Media</option>
+            <option value="ALTA">Alta</option>
+            <option value="CRITICA">Crítica</option>
+          </select>
+          <select
+            value={assigneeFilter}
+            onChange={(e) => setAssigneeFilter(e.target.value)}
+            className="gob-input w-full sm:w-44"
+            aria-label="Filtrar por responsable"
+          >
+            <option value="">Inspector: Todos</option>
+            {users.map((u) => (
+              <option key={u.id} value={u.id}>{u.name}</option>
+            ))}
+          </select>
         </div>
 
         <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+          <button
+            onClick={() => api.download(`/api/v1/reports/excel?${buildFilterParams().toString()}`, 'reporte-actividades-cnr.xlsx')}
+            className="btn btn-outline-secondary btn-default-size"
+            title="Exportar a Excel aplicando los filtros activos"
+          >
+            <Download className="w-4 h-4" />
+            Excel
+          </button>
+          <button
+            onClick={() => {
+              setImportRows([]);
+              setShowImportModal(true);
+            }}
+            className="btn btn-outline-secondary btn-default-size"
+          >
+            <Upload className="w-4 h-4" />
+            Importar CSV
+          </button>
           <div className="inline-flex h-[40px] items-center rounded-[4px] border border-[#d9e2ec] bg-white p-0.5">
             <button
               onClick={() => setViewMode('list')}
@@ -341,6 +467,53 @@ export default function ActividadesPage() {
               </button>
             </div>
           </form>
+        </div>
+      )}
+
+      {showImportModal && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl max-w-lg w-full p-6 space-y-4">
+            <div className="flex justify-between items-center gap-2">
+              <h3 className="font-bold text-lg text-[#006fb3]">Importación Masiva desde CSV</h3>
+              <button type="button" onClick={downloadCsvTemplate} className="text-xs font-semibold text-[#006fb3] hover:underline">
+                Descargar plantilla CSV
+              </button>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Proceso por defecto para las filas</label>
+              <select value={importTypeId} onChange={(e) => setImportTypeId(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm">
+                {types.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Archivo CSV (separado por ; o ,)</label>
+              <input
+                type="file"
+                accept=".csv,text/csv"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) void handleCsvFile(f);
+                }}
+                className="w-full text-xs"
+              />
+            </div>
+            {importRows.length > 0 && (
+              <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-200 text-xs text-emerald-800">
+                Listas <b>{importRows.length}</b> actividad(es) para importar. Primera fila: <b>{importRows[0]?.title}</b>
+              </div>
+            )}
+            <div className="flex justify-end gap-2 pt-2">
+              <button type="button" onClick={() => setShowImportModal(false)} className="px-4 py-2 border rounded-lg text-sm">Cancelar</button>
+              <button
+                type="button"
+                disabled={importing || importRows.length === 0}
+                onClick={runBulkImport}
+                className="px-4 py-2 bg-[#146c43] text-white rounded-lg text-sm font-medium disabled:opacity-50"
+              >
+                {importing ? 'Importando...' : `Importar (${importRows.length})`}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </AppShell>
