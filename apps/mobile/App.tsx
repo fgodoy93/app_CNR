@@ -1105,6 +1105,9 @@ function AppContent() {
                   <TouchableOpacity
                     onPress={async () => {
                       const db = await getDb();
+                      await db.runAsync(
+                        `DELETE FROM geo_features WHERE synced = 0 AND id IN (SELECT entityId FROM sync_queue WHERE status = 'REJECTED' AND entity = 'geoFeature')`,
+                      );
                       await db.runAsync(`DELETE FROM sync_queue WHERE status = 'REJECTED'`);
                       await refreshLocal();
                     }}
