@@ -4,8 +4,10 @@ import { WebView } from 'react-native-webview';
 import type { Position } from '@terreno/shared';
 import { COLORS } from '../theme';
 
+const EMPTY_FEATURES: any[] = [];
+
 export function MiniLeafletMap({
-  geoFeatures = [],
+  geoFeatures = EMPTY_FEATURES,
   draftPoints = [],
   draftKind = 'POINT',
   centerLat = -33.4489,
@@ -28,10 +30,11 @@ export function MiniLeafletMap({
   onTapCoordinate?: (lng: number, lat: number) => void;
 }) {
   const webViewRef = useRef<any>(null);
+  const featsKey = useMemo(() => JSON.stringify(geoFeatures), [geoFeatures]);
 
   const draftLatLngs = useMemo(() => draftPoints.map(([lng, lat]) => [lat, lng]), [draftPoints]);
 
-  // HTML base: solo se regenera si cambian las geometrías guardadas o el centro de la OT,
+  // HTML base: solo se regenera si cambia el contenido de geoFeatures o el centro de la OT,
   // evitando que el mapa recargue y salte al marcar vértices/puntos.
   const html = useMemo(() => {
     const feats = geoFeatures
@@ -156,7 +159,7 @@ export function MiniLeafletMap({
   </script>
 </body>
 </html>`;
-  }, [geoFeatures, centerLat, centerLng]);
+  }, [featsKey, centerLat, centerLng]);
 
   useEffect(() => {
     webViewRef.current?.injectJavaScript(
