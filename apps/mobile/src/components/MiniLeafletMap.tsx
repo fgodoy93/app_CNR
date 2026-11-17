@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import { View } from 'react-native';
 import { WebView } from 'react-native-webview';
 import type { Position } from '@terreno/shared';
@@ -27,6 +27,12 @@ export function MiniLeafletMap({
   height?: number;
   onTapCoordinate?: (lng: number, lat: number) => void;
 }) {
+  const webViewRef = useRef<any>(null);
+
+  const draftLatLngs = useMemo(() => draftPoints.map(([lng, lat]) => [lat, lng]), [draftPoints]);
+
+  // HTML base: solo se regenera si cambian las geometrías guardadas o el centro de la OT,
+  // evitando que el mapa recargue y salte al marcar vértices/puntos.
   const html = useMemo(() => {
     const feats = geoFeatures
       .map((g) => {
@@ -38,7 +44,6 @@ export function MiniLeafletMap({
       })
       .filter(Boolean);
 
-    const draftLatLngs = draftPoints.map(([lng, lat]) => [lat, lng]);
     const cLat = focusCoords?.lat ?? (typeof userLat === 'number' ? userLat : typeof centerLat === 'number' ? centerLat : -33.4489);
     const cLng = focusCoords?.lng ?? (typeof userLng === 'number' ? userLng : typeof centerLng === 'number' ? centerLng : -70.6693);
     const initZoom = focusCoords?.zoom ?? (typeof userLat === 'number' ? 16 : 13);
@@ -80,14 +85,44 @@ export function MiniLeafletMap({
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
     var bounds = [];
 
-    var uLat = ${typeof userLat === 'number' ? userLat : 'null'};
-    var uLng = ${typeof userLng === 'number' ? userLng : 'null'};
-    if (uLat !== null && uLng !== null) {
-      L.circle([uLat, uLng], { radius: 45, color: '#2563eb', fillColor: '#3b82f6', fillOpacity: 0.15, weight: 1 }).addTo(map);
-      L.circleMarker([uLat, uLng], { radius: 7, color: '#ffffff', fillColor: '#2563eb', fillOpacity: 1, weight: 2.5 })
-        .addTo(map)
-        .bindTooltip('Mi ubicación', { permanent: true, direction: 'top', offset: [0, -8], className: 'cnr-user-label' });
-    }
+    var userLayer = L.layerGroup().addTo(map);
+    var draftLayer = L.layerGroup().addTo(map);
+
+    window.updateUserPos = function(uLat, uLng) {
+      userLayer.clearLayers();
+      if (typeof uLat === 'number' && typeof uLng === 'number') {
+        L.circle([uLat, uLng], { radius: 45, color: '#2563eb', fillColor: '#3b82f6', fillOpacity: 0.15, weight: 1 }).addTo(userLayer);
+        L.circleMarker([uLat, uLng], { radius: 7, color: '#ffffff', fillColor: '#2563eb', fillOpacity: 1, weight: 2.5 })
+          .addTo(userLayer)
+          .bindTooltip('Mi ubicación', { permanent: true, direction: 'top', offset: [0, -8], className: 'cnr-user-label' });
+      }
+    };
+
+    window.updateDraft = function(draft, draftKind) {
+      draftLayer.clearLayers();
+      (draft || []).forEach(function(pt, idx) {
+        L.circleMarker(pt, { radius: 6, color: '#b45309', fillColor: '#fbbf24', fillOpacity: 1, weight: 2 })
+          .addTo(draftLayer)
+          .bindTooltip('V' + (idx + 1), { permanent: true, direction: 'top', offset: [0, -6], className: 'cnr-map-label' });
+      });
+      if ((draftKind === 'LINE' || draftKind === 'TRACK') && draft.length >= 2) {
+        L.polyline(draft, { color: '#d97706', weight: 3, dashArray: '5,5' }).addTo(draftLayer);
+      } else if (draftKind === 'POLYGON' && draft.length >= 2) {
+        if (draft.length >= 3) {
+          L.polygon(draft, { color: '#146c43', fillColor: '#22c55e', fillOpacity: 0.2, weight: 3, dashArray: '5,5' }).addTo(draftLayer);
+        } else {
+          L.polyline(draft, { color: '#146c43', weight: 3, dashArray: '5,5' }).addTo(draftLayer);
+        }
+      }
+    };
+
+    window.focusMap = function(lat, lng, zoom) {
+      if (typeof lat === 'number' && typeof lng === 'number') {
+        map.setView([lat, lng], zoom || 16);
+      }
+    };
+
+    window.updateUserPos(${typeof userLat === 'number' ? userLat : 'null'}, ${typeof userLng === 'number' ? userLng : 'null'});
 
     var feats = ${JSON.stringify(feats).replace(/</g, '\\u003c')};
     feats.forEach(function(f) {
@@ -104,23 +139,9 @@ export function MiniLeafletMap({
       } catch(e) {}
     });
 
-    var draft = ${JSON.stringify(draftLatLngs)};
-    var draftKind = ${JSON.stringify(draftKind)};
-    draft.forEach(function(pt, idx) {
-      bounds.push(pt);
-      L.circleMarker(pt, { radius: 6, color: '#b45309', fillColor: '#fbbf24', fillOpacity: 1, weight: 2 })
-        .addTo(map)
-        .bindTooltip('V' + (idx + 1), { permanent: true, direction: 'top', offset: [0, -6], className: 'cnr-map-label' });
-    });
-    if ((draftKind === 'LINE' || draftKind === 'TRACK') && draft.length >= 2) {
-      L.polyline(draft, { color: '#d97706', weight: 3, dashArray: '5,5' }).addTo(map);
-    } else if (draftKind === 'POLYGON' && draft.length >= 2) {
-      if (draft.length >= 3) {
-        L.polygon(draft, { color: '#146c43', fillColor: '#22c55e', fillOpacity: 0.2, weight: 3, dashArray: '5,5' }).addTo(map);
-      } else {
-        L.polyline(draft, { color: '#146c43', weight: 3, dashArray: '5,5' }).addTo(map);
-      }
-    }
+    var initDraft = ${JSON.stringify(draftLatLngs)};
+    window.updateDraft(initDraft, ${JSON.stringify(draftKind)});
+    initDraft.forEach(function(pt) { bounds.push(pt); });
 
     var hasFocus = ${focusCoords ? 'true' : 'false'};
     if (!hasFocus && bounds.length > 0) {
@@ -135,17 +156,43 @@ export function MiniLeafletMap({
   </script>
 </body>
 </html>`;
-  }, [geoFeatures, draftPoints, draftKind, centerLat, centerLng, userLat, userLng, focusCoords]);
+  }, [geoFeatures, centerLat, centerLng]);
+
+  useEffect(() => {
+    webViewRef.current?.injectJavaScript(
+      `window.updateDraft && window.updateDraft(${JSON.stringify(draftLatLngs)}, ${JSON.stringify(draftKind)}); true;`,
+    );
+  }, [draftLatLngs, draftKind]);
+
+  useEffect(() => {
+    webViewRef.current?.injectJavaScript(
+      `window.updateUserPos && window.updateUserPos(${typeof userLat === 'number' ? userLat : 'null'}, ${typeof userLng === 'number' ? userLng : 'null'}); true;`,
+    );
+  }, [userLat, userLng]);
+
+  useEffect(() => {
+    if (focusCoords) {
+      webViewRef.current?.injectJavaScript(
+        `window.focusMap && window.focusMap(${focusCoords.lat}, ${focusCoords.lng}, ${focusCoords.zoom ?? 16}); true;`,
+      );
+    }
+  }, [focusCoords]);
 
   return (
     <View style={{ height, borderRadius: 10, overflow: 'hidden', borderWidth: 1, borderColor: COLORS.border }}>
       <WebView
+        ref={webViewRef}
         source={{ html }}
         style={{ flex: 1 }}
         originWhitelist={['*']}
         javaScriptEnabled
         domStorageEnabled
         nestedScrollEnabled
+        onLoadEnd={() => {
+          webViewRef.current?.injectJavaScript(
+            `window.updateDraft && window.updateDraft(${JSON.stringify(draftLatLngs)}, ${JSON.stringify(draftKind)}); true;`,
+          );
+        }}
         onMessage={(ev) => {
           if (!onTapCoordinate) return;
           try {
