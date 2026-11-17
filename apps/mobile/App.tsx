@@ -93,6 +93,9 @@ function AppContent() {
   const [showGeoModal, setShowGeoModal] = useState(false);
   const [showNewModal, setShowNewModal] = useState(false);
   const [showOtScanner, setShowOtScanner] = useState(false);
+  const [notifications, setNotifications] = useState<{ id: string; title: string; body?: string | null; link?: string | null; readAt?: string | null; createdAt?: string }[]>([]);
+  const [unreadNotifs, setUnreadNotifs] = useState(0);
+  const [showNotifsModal, setShowNotifsModal] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
   const [networkType, setNetworkType] = useState('UNKNOWN');
@@ -143,6 +146,16 @@ function AppContent() {
     })();
   }, []);
 
+  const fetchMobileNotifications = async () => {
+    try {
+      const res = await apiFetch<{ data: typeof notifications; unread: number }>('/api/v1/admin/notifications');
+      setNotifications(res.data || []);
+      setUnreadNotifs(res.unread || 0);
+    } catch {
+      // ignore offline
+    }
+  };
+
   const handleLogin = async () => {
     try {
       await setApiUrl(apiUrlInput.trim());
@@ -175,6 +188,7 @@ function AppContent() {
       }
       const summary = await syncAll();
       ok = true;
+      void fetchMobileNotifications();
       await refreshLocal();
       const rejectedCntRow = await db.getFirstAsync<{ cnt: number }>(
         `SELECT COUNT(*) as cnt FROM sync_queue WHERE status = 'REJECTED'`,
@@ -925,9 +939,18 @@ function AppContent() {
               <Text style={{ color: '#dbeafe', fontSize: 10, fontWeight: '600' }}>Comisión Nacional de Riego</Text>
             </View>
           </View>
-          <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+          <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
+            <TouchableOpacity
+              onPress={() => {
+                void fetchMobileNotifications();
+                setShowNotifsModal(true);
+              }}
+              style={[styles.headerPill, { backgroundColor: unreadNotifs > 0 ? '#dc2626' : 'rgba(255,255,255,0.2)' }]}
+            >
+              <Text style={styles.headerPillTxt}>🔔{unreadNotifs > 0 ? ` ${unreadNotifs}` : ''}</Text>
+            </TouchableOpacity>
             <TouchableOpacity onPress={() => setShowOtScanner(true)} style={[styles.headerPill, { backgroundColor: COLORS.water }]}>
-              <Text style={styles.headerPillTxt}>📷 QR OT</Text>
+              <Text style={styles.headerPillTxt}>📷 QR</Text>
             </TouchableOpacity>
             <TouchableOpacity
               onPress={() => handleSync(false)}
@@ -1134,6 +1157,88 @@ function AppContent() {
 
       <NewActivityModal visible={showNewModal} types={types} onCreate={handleCreateActivity} onClose={() => setShowNewModal(false)} />
       <QrScannerModal visible={showOtScanner} onScanned={handleScanOtQr} onClose={() => setShowOtScanner(false)} />
+
+      <Modal visible={showNotifsModal} animationType="slide" transparent>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' }}>
+          <View style={{ backgroundColor: '#fff', borderTopLeftRadius: 16, borderTopRightRadius: 16, maxHeight: '78%', padding: 16, paddingBottom: bottomSafe + 16 }}>
+            <View style={[styles.rowBetween, { marginBottom: 12 }]}>
+              <Text style={{ fontSize: 16, fontWeight: '800', color: COLORS.primary }}>
+                Notificaciones ({unreadNotifs})
+              </Text>
+              <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
+                {unreadNotifs > 0 && (
+                  <TouchableOpacity
+                    onPress={async () => {
+                      try {
+                        await apiFetch('/api/v1/admin/notifications/read-all', { method: 'POST' });
+                        const nowIso = new Date().toISOString();
+                        setNotifications((prev) => prev.map((n) => ({ ...n, readAt: n.readAt || nowIso })));
+                        setUnreadNotifs(0);
+                      } catch {
+                        // ignore
+                      }
+                    }}
+                  >
+                    <Text style={{ fontSize: 12, fontWeight: '700', color: COLORS.primary }}>Marcar todas</Text>
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity onPress={() => setShowNotifsModal(false)}>
+                  <Text style={{ fontSize: 13, fontWeight: '700', color: COLORS.muted }}>Cerrar</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+            <ScrollView contentContainerStyle={{ gap: 8 }}>
+              {notifications.length === 0 ? (
+                <Text style={[styles.meta, { textAlign: 'center', paddingVertical: 24 }]}>Sin notificaciones aún.</Text>
+              ) : (
+                notifications.map((n) => (
+                  <TouchableOpacity
+                    key={n.id}
+                    onPress={async () => {
+                      if (!n.readAt) {
+                        apiFetch(`/api/v1/admin/notifications/${n.id}/read`, { method: 'POST' }).catch(() => undefined);
+                        setNotifications((prev) => prev.map((x) => (x.id === n.id ? { ...x, readAt: new Date().toISOString() } : x)));
+                        setUnreadNotifs((u) => Math.max(0, u - 1));
+                      }
+                      setShowNotifsModal(false);
+                      const match = n.link?.match(/\/actividades\/([^/]+)/);
+                      if (match?.[1]) {
+                        const db = await getDb();
+                        const found = await db.getFirstAsync<any>(`SELECT * FROM activities WHERE id = ?`, [match[1]]);
+                        if (found) {
+                          void openActivity(found);
+                        } else {
+                          await handleSync(true);
+                          const refreshed = await db.getFirstAsync<any>(`SELECT * FROM activities WHERE id = ?`, [match[1]]);
+                          if (refreshed) void openActivity(refreshed);
+                        }
+                      }
+                    }}
+                    style={{
+                      padding: 12,
+                      borderRadius: 10,
+                      borderWidth: 1,
+                      borderColor: !n.readAt ? '#93c5fd' : COLORS.border,
+                      backgroundColor: !n.readAt ? '#eff6ff' : '#ffffff',
+                    }}
+                  >
+                    <View style={styles.rowBetween}>
+                      <Text style={{ fontWeight: '700', fontSize: 13, color: COLORS.text, flex: 1 }}>{n.title}</Text>
+                      {!n.readAt && <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: COLORS.primary, marginLeft: 8 }} />}
+                    </View>
+                    {n.body ? <Text style={{ fontSize: 12, color: COLORS.muted, marginTop: 2 }}>{n.body}</Text> : null}
+                    {n.createdAt ? (
+                      <Text style={{ fontSize: 10, color: '#94a3b8', marginTop: 4 }}>
+                        {new Date(n.createdAt).toLocaleString('es-CL')}
+                      </Text>
+                    ) : null}
+                  </TouchableOpacity>
+                ))
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }

@@ -12,6 +12,7 @@ import {
 } from '../services/activities';
 import { loadWorkflow, loadFormDefinition } from '../services/activities';
 import { generateDocument } from '../services/documents';
+import { notifyUsers } from '../lib/notifications';
 import { availableTransitions } from '@terreno/shared';
 import { activityCreateSchema, activityUpdateSchema, transitionSchema } from '@terreno/shared';
 
@@ -178,6 +179,13 @@ export const activitiesRoutes: FastifyPluginAsync = async (app) => {
     const comment = await prisma.activityComment.create({
       data: { activityId: act.id, userId: req.actor.userId, body: body.trim() },
       include: { user: { select: { id: true, name: true } } },
+    });
+    await notifyUsers({
+      userIds: [act.createdById, act.assigneeId],
+      excludeUserId: req.actor.userId,
+      title: `Nuevo comentario en ${act.folio}`,
+      body: `${req.actor.name || 'Usuario'}: ${body.trim().slice(0, 120)}`,
+      link: `/actividades/${act.id}`,
     });
     return reply.status(201).send(comment);
   });

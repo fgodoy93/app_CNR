@@ -196,13 +196,26 @@ export const adminRoutes: FastifyPluginAsync = async (app) => {
 
   app.get('/notifications', async (req) => {
     if (!req.actor.userId) return { data: [], unread: 0 };
-    const data = await prisma.notification.findMany({
-      where: { userId: req.actor.userId },
-      orderBy: { createdAt: 'desc' },
-      take: 50,
-    });
-    const unread = data.filter((n) => !n.readAt).length;
+    const [data, unread] = await Promise.all([
+      prisma.notification.findMany({
+        where: { userId: req.actor.userId },
+        orderBy: { createdAt: 'desc' },
+        take: 50,
+      }),
+      prisma.notification.count({
+        where: { userId: req.actor.userId, readAt: null },
+      }),
+    ]);
     return { data, unread };
+  });
+
+  app.post('/notifications/read-all', async (req) => {
+    if (!req.actor.userId) return { ok: true, count: 0 };
+    const res = await prisma.notification.updateMany({
+      where: { userId: req.actor.userId, readAt: null },
+      data: { readAt: new Date() },
+    });
+    return { ok: true, count: res.count };
   });
 
   app.post('/notifications/:id/read', async (req) => {

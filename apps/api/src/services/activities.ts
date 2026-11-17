@@ -15,6 +15,7 @@ import { prisma, type Tx } from '../db';
 import { audit, diff } from '../lib/audit';
 import { badRequest, conflict, forbidden, notFound } from '../lib/errors';
 import { nextFolio } from '../lib/folio';
+import { notifyUsers } from '../lib/notifications';
 import type { Actor } from '../types';
 import { runTransitionActions } from './workflow-actions';
 import { emitEvent } from './webhooks';
@@ -129,6 +130,16 @@ export async function createActivity(actor: Actor, input: ActivityCreateInput, t
     include: activityInclude,
   });
   await audit(actor, 'activity', activity.id, 'create', { after: { folio, title: activity.title, status: activity.status } }, tx);
+  await notifyUsers(
+    {
+      userIds: [activity.assigneeId],
+      excludeUserId: actor.userId,
+      title: `Nueva actividad asignada: ${folio}`,
+      body: activity.title,
+      link: `/actividades/${activity.id}`,
+    },
+    tx,
+  );
   await emitEvent('activity.created', serializeActivity(activity), tx);
   return { activity, created: true };
 }
@@ -180,6 +191,29 @@ export async function updateActivity(
   const updated = await prisma.$transaction(async (tx) => {
     const u = await tx.activity.update({ where: { id: current.id }, data, include: activityInclude });
     await audit(actor, 'activity', u.id, 'update', diff(snapshot(current), snapshot(u)), tx);
+    if (patch.assigneeId && patch.assigneeId !== current.assigneeId) {
+      await notifyUsers(
+        {
+          userIds: [String(patch.assigneeId)],
+          excludeUserId: actor.userId,
+          title: `OT asignada: ${u.folio}`,
+          body: u.title,
+          link: `/actividades/${u.id}`,
+        },
+        tx,
+      );
+    } else if (patch.data !== undefined) {
+      await notifyUsers(
+        {
+          userIds: [current.createdById, u.assigneeId],
+          excludeUserId: actor.userId,
+          title: `Avance registrado en ${u.folio}`,
+          body: `${actor.name || 'Usuario'} actualizó el formulario de "${u.title}"`,
+          link: `/actividades/${u.id}`,
+        },
+        tx,
+      );
+    }
     await emitEvent('activity.updated', serializeActivity(u), tx);
     return u;
   });

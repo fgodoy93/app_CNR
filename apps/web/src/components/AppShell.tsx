@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import {
   LayoutDashboard,
@@ -49,9 +49,12 @@ const NAV_GROUPS = [
 
 export function AppShell({ title, children }: { title: string; children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
   const [user, setUser] = useState<StoredUser | null>(null);
   const [unread, setUnread] = useState(0);
-  const [notifications, setNotifications] = useState<{ id: string; title: string; body?: string; readAt?: string | null; link?: string | null }[]>([]);
+  const [notifications, setNotifications] = useState<
+    { id: string; title: string; body?: string; readAt?: string | null; link?: string | null; createdAt?: string }[]
+  >([]);
   const [showNotifs, setShowNotifs] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [showPwdModal, setShowPwdModal] = useState(false);
@@ -59,12 +62,7 @@ export function AppShell({ title, children }: { title: string; children: React.R
   const [pwdErr, setPwdErr] = useState<string | null>(null);
   const [pwdOk, setPwdOk] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!getToken()) {
-      window.location.href = '/';
-      return;
-    }
-    setUser(getUser());
+  const fetchNotifications = () => {
     api
       .get<{ data: typeof notifications; unread: number }>('/api/v1/admin/notifications')
       .then((res) => {
@@ -72,12 +70,30 @@ export function AppShell({ title, children }: { title: string; children: React.R
         setUnread(res.unread);
       })
       .catch(() => undefined);
+  };
+
+  useEffect(() => {
+    if (!getToken()) {
+      window.location.href = '/';
+      return;
+    }
+    setUser(getUser());
+    fetchNotifications();
+    const timer = setInterval(fetchNotifications, 15000);
+    return () => clearInterval(timer);
   }, []);
 
   const markRead = async (id: string) => {
     await api.post(`/api/v1/admin/notifications/${id}/read`);
     setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, readAt: new Date().toISOString() } : n)));
     setUnread((u) => Math.max(0, u - 1));
+  };
+
+  const markAllRead = async () => {
+    await api.post('/api/v1/admin/notifications/read-all');
+    const nowIso = new Date().toISOString();
+    setNotifications((prev) => prev.map((n) => ({ ...n, readAt: n.readAt || nowIso })));
+    setUnread(0);
   };
 
   const handleChangePassword = async (e: React.FormEvent) => {
@@ -226,9 +242,17 @@ export function AppShell({ title, children }: { title: string; children: React.R
 
             {showNotifs && (
               <div className="absolute right-0 mt-2 w-[min(20rem,calc(100vw-1.5rem))] bg-white border border-slate-200 rounded-xl shadow-xl z-50 max-h-96 overflow-y-auto">
-                <div className="px-4 py-3 border-b border-slate-100 font-semibold text-sm flex justify-between items-center">
-                  <span>Notificaciones</span>
-                  <span className="text-xs text-slate-500">{unread} sin leer</span>
+                <div className="px-4 py-3 border-b border-slate-100 font-semibold text-sm flex justify-between items-center gap-2">
+                  <span>Notificaciones ({unread})</span>
+                  {unread > 0 && (
+                    <button
+                      type="button"
+                      onClick={markAllRead}
+                      className="text-xs font-semibold text-[#006fb3] hover:underline"
+                    >
+                      Marcar todas
+                    </button>
+                  )}
                 </div>
                 {notifications.length === 0 ? (
                   <div className="p-4 text-sm text-slate-500 text-center">Sin notificaciones</div>
@@ -236,13 +260,25 @@ export function AppShell({ title, children }: { title: string; children: React.R
                   notifications.map((n) => (
                     <div
                       key={n.id}
-                      onClick={() => !n.readAt && markRead(n.id)}
+                      onClick={async () => {
+                        if (!n.readAt) await markRead(n.id);
+                        setShowNotifs(false);
+                        if (n.link) router.push(n.link);
+                      }}
                       className={`p-3 border-b border-slate-100 text-sm cursor-pointer hover:bg-slate-50 ${
                         !n.readAt ? 'bg-blue-50/50' : ''
                       }`}
                     >
-                      <div className="font-medium text-slate-800">{n.title}</div>
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="font-medium text-slate-800">{n.title}</div>
+                        {!n.readAt && <span className="mt-1.5 w-2 h-2 rounded-full bg-[#006fb3] shrink-0" />}
+                      </div>
                       {n.body && <div className="text-xs text-slate-500 mt-0.5">{n.body}</div>}
+                      {n.createdAt && (
+                        <div className="text-[10px] text-slate-400 mt-1">
+                          {new Date(n.createdAt).toLocaleString('es-CL')}
+                        </div>
+                      )}
                     </div>
                   ))
                 )}
