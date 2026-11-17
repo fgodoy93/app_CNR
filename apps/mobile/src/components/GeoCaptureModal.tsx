@@ -172,7 +172,7 @@ export function GeoCaptureModal({
             ))}
           </View>
 
-          <TextInput style={styles.input} value={label} onChangeText={setLabel} placeholder="Nombre / Identificador del punto" />
+          <TextInput style={styles.input} value={label} onChangeText={setLabel} placeholder="Nombre / Identificador del punto" placeholderTextColor="#64748b" />
           <View style={styles.kindRow}>
             {['Conforme', 'Observado', 'Crítico'].map((st) => (
               <TouchableOpacity key={st} onPress={() => setStatus(st)} style={[styles.kindBtn, status === st && styles.kindBtnActive]}>
@@ -186,6 +186,7 @@ export function GeoCaptureModal({
             value={observations}
             onChangeText={setObservations}
             placeholder="Observaciones del punto o tramo..."
+            placeholderTextColor="#64748b"
           />
 
           <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
@@ -194,6 +195,7 @@ export function GeoCaptureModal({
               value={searchZone}
               onChangeText={setSearchZone}
               placeholder="Buscar dirección o zona (ej. Talca, Rancagua)..."
+              placeholderTextColor="#64748b"
               returnKeyType="search"
               onSubmitEditing={searchAddress}
             />

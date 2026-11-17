@@ -236,6 +236,7 @@ export function AudioRecorderModal({
             value={transcript}
             onChangeText={setTranscript}
             placeholder="El texto aparecerá aquí automáticamente al detener la grabación..."
+            placeholderTextColor="#64748b"
           />
 
           <View style={[styles.row, { marginTop: 14 }]}>

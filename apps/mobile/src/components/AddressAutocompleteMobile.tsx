@@ -51,6 +51,7 @@ export function AddressAutocompleteMobile({
           onChangeText(t);
         }}
         placeholder={placeholder}
+        placeholderTextColor="#64748b"
       />
       {focused && suggestions.length > 0 && (
         <View style={styles.list}>

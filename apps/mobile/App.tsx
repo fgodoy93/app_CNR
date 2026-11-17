@@ -647,9 +647,9 @@ function AppContent() {
               <CnrLogoFull width={200} height={84} />
               <Text style={styles.sub}>Ministerio de Agricultura · Gobierno de Chile</Text>
             </View>
-            <TextInput style={styles.input} value={apiUrlInput} onChangeText={setApiUrlInput} placeholder="URL API" autoCapitalize="none" />
-            <TextInput style={styles.input} value={email} onChangeText={setEmail} placeholder="Correo institucional" autoCapitalize="none" />
-            <TextInput style={styles.input} value={password} onChangeText={setPassword} placeholder="Contraseña" secureTextEntry />
+            <TextInput style={styles.input} value={apiUrlInput} onChangeText={setApiUrlInput} placeholder="URL API" placeholderTextColor="#64748b" autoCapitalize="none" />
+            <TextInput style={styles.input} value={email} onChangeText={setEmail} placeholder="Correo institucional" placeholderTextColor="#64748b" autoCapitalize="none" />
+            <TextInput style={styles.input} value={password} onChangeText={setPassword} placeholder="Contraseña" placeholderTextColor="#64748b" secureTextEntry />
             <TouchableOpacity onPress={handleLogin} style={styles.primaryBtn}>
               <Text style={styles.primaryTxt}>Ingresar a Terreno</Text>
             </TouchableOpacity>
@@ -732,6 +732,7 @@ function AppContent() {
                 value={transitionComment}
                 onChangeText={setTransitionComment}
                 placeholder="Comentario / observación para cambio de estado..."
+                placeholderTextColor="#64748b"
               />
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
                 {transitions.map((tr) => (
@@ -966,6 +967,7 @@ function AppContent() {
               value={search}
               onChangeText={setSearch}
               placeholder="Buscar folio o título..."
+              placeholderTextColor="#64748b"
             />
             <TouchableOpacity onPress={() => setShowNewModal(true)} style={styles.smallPriBtn}>
               <Text style={styles.smallPriTxt}>+ Nueva OT</Text>

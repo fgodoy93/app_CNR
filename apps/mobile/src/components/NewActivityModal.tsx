@@ -82,7 +82,7 @@ export function NewActivityModal({
             })}
           </View>
 
-          <TextInput style={styles.input} value={title} onChangeText={setTitle} placeholder="Título de la inspección u orden *" />
+          <TextInput style={styles.input} value={title} onChangeText={setTitle} placeholder="Título de la inspección u orden *" placeholderTextColor="#64748b" />
           <AddressAutocompleteMobile
             value={address}
             onChangeText={setAddress}
@@ -92,7 +92,7 @@ export function NewActivityModal({
           <TouchableOpacity onPress={useCurrentLocation} disabled={locating} style={styles.gpsBtn}>
             <Text style={styles.gpsBtnTxt}>{locating ? 'Obteniendo GPS...' : '📍 Usar mi ubicación actual'}</Text>
           </TouchableOpacity>
-          <TextInput style={[styles.input, { height: 60 }]} multiline value={description} onChangeText={setDescription} placeholder="Descripción" />
+          <TextInput style={[styles.input, { height: 60 }]} multiline value={description} onChangeText={setDescription} placeholder="Descripción" placeholderTextColor="#64748b" />
 
           <Text style={styles.label}>Prioridad</Text>
           <View style={styles.row}>

@@ -221,6 +221,7 @@ export function DynamicFormMobile({
                   editable={!disabled}
                   onChangeText={(t) => setVal(f.key, t)}
                   placeholder={f.type === 'time' ? 'HH:MM' : 'YYYY-MM-DD'}
+                  placeholderTextColor="#64748b"
                 />
                 <TouchableOpacity
                   onPress={() => {
@@ -248,6 +249,7 @@ export function DynamicFormMobile({
                   editable={!disabled}
                   onChangeText={(t) => setVal(f.key, t)}
                   placeholder="Código escaneado"
+                  placeholderTextColor="#64748b"
                 />
                 <TouchableOpacity onPress={() => setQrField(f.key)} style={styles.actionBtn}>
                   <Text style={styles.actionTxt}>Escanear</Text>
@@ -290,6 +292,7 @@ export function DynamicFormMobile({
                   value={val === undefined || val === null ? '' : String(val)}
                   onChangeText={(t) => setVal(f.key, t)}
                   placeholder="Dictado / transcripción de voz..."
+                  placeholderTextColor="#64748b"
                 />
               </View>
             ) : f.type === 'geopoint' || f.type === 'geoline' || f.type === 'geopolygon' ? (
@@ -322,6 +325,7 @@ export function DynamicFormMobile({
                 value={val === undefined || val === null ? '' : String(val)}
                 onChangeText={(t) => setVal(f.key, f.type === 'number' ? (t === '' ? undefined : Number(t)) : t)}
                 placeholder={f.placeholder}
+                placeholderTextColor="#64748b"
               />
             )}
           </View>
