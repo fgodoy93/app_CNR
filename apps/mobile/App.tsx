@@ -145,7 +145,7 @@ function AppContent() {
 
   const handleLogin = async () => {
     try {
-      await setApiUrl(apiUrlInput);
+      await setApiUrl(apiUrlInput.trim());
       const res = await apiFetch<{ accessToken: string; refreshToken?: string; user: any }>('/api/v1/auth/login', {
         method: 'POST',
         body: JSON.stringify({ email, password, device: 'mobile-app' }),
