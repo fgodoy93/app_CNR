@@ -40,6 +40,7 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
+      "./plugins/withCleartextTraffic",
       "expo-sqlite",
       "expo-location",
       "expo-camera",

@@ -6,7 +6,7 @@ const KEY_USER = 'tc_user';
 const KEY_API_URL = 'tc_api_url';
 const KEY_DEVICE_ID = 'tc_device_id';
 
-export const DEFAULT_API_URL = 'http://192.168.1.158:4000';
+export const DEFAULT_API_URL = 'http://13.140.47.47:3000';
 
 async function kvGet(key: string): Promise<string | null> {
   const db = await getDb();
