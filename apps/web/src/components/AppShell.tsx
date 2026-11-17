@@ -16,6 +16,7 @@ import {
   LogOut,
   Menu,
   X,
+  KeyRound,
 } from 'lucide-react';
 import { api, getToken, getUser, logout, type StoredUser } from '@/lib/api';
 import { BrandMark } from '@/components/BrandMark';
@@ -53,6 +54,10 @@ export function AppShell({ title, children }: { title: string; children: React.R
   const [notifications, setNotifications] = useState<{ id: string; title: string; body?: string; readAt?: string | null; link?: string | null }[]>([]);
   const [showNotifs, setShowNotifs] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [showPwdModal, setShowPwdModal] = useState(false);
+  const [pwdForm, setPwdForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
+  const [pwdErr, setPwdErr] = useState<string | null>(null);
+  const [pwdOk, setPwdOk] = useState<string | null>(null);
 
   useEffect(() => {
     if (!getToken()) {
@@ -73,6 +78,34 @@ export function AppShell({ title, children }: { title: string; children: React.R
     await api.post(`/api/v1/admin/notifications/${id}/read`);
     setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, readAt: new Date().toISOString() } : n)));
     setUnread((u) => Math.max(0, u - 1));
+  };
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPwdErr(null);
+    setPwdOk(null);
+    if (pwdForm.newPassword.length < 8) {
+      setPwdErr('La nueva contraseña debe tener al menos 8 caracteres.');
+      return;
+    }
+    if (pwdForm.newPassword !== pwdForm.confirmPassword) {
+      setPwdErr('Las nuevas contraseñas no coinciden.');
+      return;
+    }
+    try {
+      await api.post('/api/v1/auth/change-password', {
+        currentPassword: pwdForm.currentPassword,
+        newPassword: pwdForm.newPassword,
+      });
+      setPwdOk('Contraseña actualizada correctamente.');
+      setPwdForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+      setTimeout(() => {
+        setShowPwdModal(false);
+        setPwdOk(null);
+      }, 1200);
+    } catch (err: any) {
+      setPwdErr(err.message);
+    }
   };
 
   return (
@@ -139,8 +172,19 @@ export function AppShell({ title, children }: { title: string; children: React.R
           <div className="font-semibold truncate">{user?.name || 'Cargando...'}</div>
           <div className="text-emerald-200/90 truncate">{user?.role || ''} · {user?.unit?.code || 'CNR'}</div>
           <button
-            onClick={logout}
+            onClick={() => {
+              setPwdErr(null);
+              setPwdOk(null);
+              setShowPwdModal(true);
+            }}
             className="mt-3 w-full flex items-center justify-center gap-2 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs font-medium transition-colors"
+          >
+            <KeyRound className="w-3.5 h-3.5" />
+            Cambiar contraseña
+          </button>
+          <button
+            onClick={logout}
+            className="mt-2 w-full flex items-center justify-center gap-2 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs font-medium transition-colors"
           >
             <LogOut className="w-3.5 h-3.5" />
             Cerrar sesión
@@ -222,6 +266,50 @@ export function AppShell({ title, children }: { title: string; children: React.R
           </div>
         </footer>
       </div>
+
+      {showPwdModal && (
+        <div className="fixed inset-0 z-50 bg-black/45 flex items-center justify-center p-4">
+          <form onSubmit={handleChangePassword} className="bg-white rounded-xl border border-[#d9e2ec] shadow-xl max-w-sm w-full p-6 space-y-3">
+            <h3 className="font-bold text-base text-[#006fb3]">Cambiar mi contraseña</h3>
+            {pwdErr && <div className="p-2.5 rounded bg-red-50 border border-red-200 text-red-700 text-xs">{pwdErr}</div>}
+            {pwdOk && <div className="p-2.5 rounded bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs">{pwdOk}</div>}
+            <input
+              type="password"
+              required
+              value={pwdForm.currentPassword}
+              onChange={(e) => setPwdForm({ ...pwdForm, currentPassword: e.target.value })}
+              placeholder="Contraseña actual"
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
+            />
+            <input
+              type="password"
+              required
+              minLength={8}
+              value={pwdForm.newPassword}
+              onChange={(e) => setPwdForm({ ...pwdForm, newPassword: e.target.value })}
+              placeholder="Nueva contraseña (mín. 8 caracteres)"
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
+            />
+            <input
+              type="password"
+              required
+              minLength={8}
+              value={pwdForm.confirmPassword}
+              onChange={(e) => setPwdForm({ ...pwdForm, confirmPassword: e.target.value })}
+              placeholder="Confirmar nueva contraseña"
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
+            />
+            <div className="flex justify-end gap-2 pt-2">
+              <button type="button" onClick={() => setShowPwdModal(false)} className="btn btn-outline-secondary btn-sm">
+                Cancelar
+              </button>
+              <button type="submit" className="btn btn-primary btn-sm">
+                Actualizar clave
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
     </div>
   );
 }

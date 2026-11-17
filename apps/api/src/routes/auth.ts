@@ -1,9 +1,16 @@
 import type { FastifyPluginAsync } from 'fastify';
+import { z } from 'zod';
 import { prisma } from '../db';
-import { verify } from '@node-rs/argon2';
+import { hash, verify } from '@node-rs/argon2';
 import { unauthorized, badRequest } from '../lib/errors';
 import { randomToken, sha256 } from '../lib/crypto';
+import { audit } from '../lib/audit';
 import { loginSchema } from '@terreno/shared';
+
+const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1),
+  newPassword: z.string().min(8, 'La nueva contraseña debe tener al menos 8 caracteres'),
+});
 
 export const authRoutes: FastifyPluginAsync = async (app) => {
   app.post('/login', { config: { rateLimit: { max: 15, timeWindow: '1 minute' } } }, async (req, reply) => {
@@ -119,5 +126,20 @@ export const authRoutes: FastifyPluginAsync = async (app) => {
 
   app.get('/me', { preHandler: [app.authenticate] }, async (req) => {
     return { actor: req.actor };
+  });
+
+  app.post('/change-password', { preHandler: [app.authenticate] }, async (req, reply) => {
+    if (!req.actor.userId) throw unauthorized('Solo usuarios autenticados pueden cambiar su contraseña');
+    const { currentPassword, newPassword } = changePasswordSchema.parse(req.body);
+    const user = await prisma.user.findUnique({ where: { id: req.actor.userId } });
+    if (!user || !user.active) throw unauthorized('Usuario no encontrado o inactivo');
+
+    const valid = await verify(user.passwordHash, currentPassword);
+    if (!valid) throw badRequest('La contraseña actual es incorrecta');
+
+    const passwordHash = await hash(newPassword);
+    await prisma.user.update({ where: { id: user.id }, data: { passwordHash } });
+    await audit(req.actor, 'user', user.id, 'change_password', { after: { selfService: true } });
+    return reply.send({ ok: true });
   });
 };

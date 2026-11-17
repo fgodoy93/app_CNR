@@ -12,9 +12,12 @@ export default function UsuariosPage() {
   const [showModal, setShowModal] = useState(false);
   const [showUnitModal, setShowUnitModal] = useState(false);
   const [showRoleModal, setShowRoleModal] = useState(false);
+  const [editingUser, setEditingUser] = useState<any | null>(null);
+  const [editForm, setEditForm] = useState({ name: '', roleId: '', unitId: '', password: '' });
   const [form, setForm] = useState({ email: '', name: '', password: '', roleId: '', unitId: '' });
   const [unitForm, setUnitForm] = useState({ code: '', name: '' });
   const [roleForm, setRoleForm] = useState({ key: '', name: '', permissions: 'activities.read.unit,activities.create,activities.write' });
+  const [msg, setMsg] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const load = () => {
@@ -84,9 +87,49 @@ export default function UsuariosPage() {
     load();
   };
 
+  const openEditUser = (u: any) => {
+    setError(null);
+    setMsg(null);
+    setEditingUser(u);
+    setEditForm({
+      name: u.name || '',
+      roleId: u.role?.id || '',
+      unitId: u.unit?.id || '',
+      password: '',
+    });
+  };
+
+  const saveEditUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingUser) return;
+    setError(null);
+    setMsg(null);
+    try {
+      const payload: Record<string, unknown> = {
+        name: editForm.name.trim(),
+        roleId: editForm.roleId,
+        unitId: editForm.unitId || null,
+      };
+      if (editForm.password.trim()) {
+        payload.password = editForm.password.trim();
+      }
+      await api.patch(`/api/v1/admin/users/${editingUser.id}`, payload);
+      setMsg(
+        editForm.password.trim()
+          ? `Usuario ${editForm.name} y contraseña actualizados.`
+          : `Usuario ${editForm.name} actualizado.`,
+      );
+      setEditingUser(null);
+      load();
+    } catch (err: any) {
+      setError(err.message);
+    }
+  };
+
   return (
     <AppShell title="Administración de Usuarios, Roles y Unidades">
       {error && <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">{error}</div>}
+      {msg && <div className="mb-4 p-3 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-lg text-sm">{msg}</div>}
 
       <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
         <p className="text-sm text-slate-500">Capacidad licenciada: {users.filter((u) => u.active).length} / 45 usuarios habilitados</p>
@@ -128,9 +171,14 @@ export default function UsuariosPage() {
                   </span>
                 </td>
                 <td className="px-4 py-3">
-                  <button onClick={() => toggleActive(u)} className="text-xs text-blue-700 hover:underline">
-                    {u.active ? 'Desactivar' : 'Activar'}
-                  </button>
+                  <div className="flex items-center gap-3">
+                    <button onClick={() => openEditUser(u)} className="text-xs font-semibold text-[#006fb3] hover:underline">
+                      Editar / Clave
+                    </button>
+                    <button onClick={() => toggleActive(u)} className="text-xs text-slate-600 hover:underline">
+                      {u.active ? 'Desactivar' : 'Activar'}
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
@@ -209,6 +257,58 @@ export default function UsuariosPage() {
             <div className="flex justify-end gap-2">
               <button type="button" onClick={() => setShowRoleModal(false)} className="btn btn-outline-secondary btn-default-size">Cancelar</button>
               <button type="submit" className="btn btn-primary btn-default-size">Crear Rol</button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {editingUser && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
+          <form onSubmit={saveEditUser} className="bg-white rounded-xl max-w-md w-full p-6 space-y-4">
+            <h3 className="font-bold text-lg text-[#006fb3]">Editar Usuario / Restablecer Clave</h3>
+            <p className="text-xs text-slate-500">{editingUser.email}</p>
+            <input
+              value={editForm.name}
+              onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+              placeholder="Nombre completo"
+              className="w-full px-3 py-2 border rounded-lg text-sm"
+              required
+            />
+            <select
+              value={editForm.roleId}
+              onChange={(e) => setEditForm({ ...editForm, roleId: e.target.value })}
+              className="w-full px-3 py-2 border rounded-lg text-sm"
+            >
+              {roles.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
+            </select>
+            <select
+              value={editForm.unitId}
+              onChange={(e) => setEditForm({ ...editForm, unitId: e.target.value })}
+              className="w-full px-3 py-2 border rounded-lg text-sm"
+            >
+              <option value="">Todas las unidades</option>
+              {units.map((un) => <option key={un.id} value={un.id}>{un.name}</option>)}
+            </select>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">
+                Nueva contraseña (dejar vacío para mantener la actual)
+              </label>
+              <input
+                type="password"
+                minLength={8}
+                value={editForm.password}
+                onChange={(e) => setEditForm({ ...editForm, password: e.target.value })}
+                placeholder="Mínimo 8 caracteres"
+                className="w-full px-3 py-2 border rounded-lg text-sm"
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <button type="button" onClick={() => setEditingUser(null)} className="btn btn-outline-secondary btn-default-size">
+                Cancelar
+              </button>
+              <button type="submit" className="btn btn-primary btn-default-size">
+                Guardar cambios
+              </button>
             </div>
           </form>
         </div>
